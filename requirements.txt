@@ -1,0 +1,7 @@
+streamlit>=1.36
+pydantic>=2.7
+PyYAML>=6.0
+pytest>=8.0
+python-dotenv>=1.0
+google-genai>=1.0
+Pillow>=10.0

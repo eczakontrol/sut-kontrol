@@ -1,0 +1,196 @@
+surum: "2026-10-06a"
+kaynak: "Sağlık Uygulama Tebliği, diyabet ilaçları ve insülinler"
+
+ayarlar:
+  receteyi_de_degerlendir: true
+
+ibareler:
+  sglt2_glisemik_kontrol:
+    baslik: "SGLT-2/DPP-4 glisemik kontrol ibaresi"
+    esik: 0.80
+    kaliplar:
+      # 5 Eylül 2026 SUT güncellemesi: ibareye "tip 2 diyabet hastalarında" eklendi.
+      - "metformin ve/veya sülfonilürelerin maksimum tolere edilebilir dozlarında yeterli glisemik kontrol sağlanamamış tip 2 diyabet hastalarında"
+      - "metformin ve/veya sülfonilürelerin maksimum tolere edilebilir dozlarında yeterli glisemik kontrol sağlanamamış"
+      - "metformin ve sülfonilürelerin maksimum tolere edilebilir dozlarında yeterli glisemik kontrol sağlanamamış"
+      - "metformin veya sülfonilürelerin maksimum tolere edilebilir dozunda yeterli glisemik kontrol sağlanamamış"
+
+kurallar:
+
+  - id: SGLT2_IBARE
+    tip: cok_kaynakli_ibare_kontrolu
+    kapsam: urun
+    baslik: "SGLT-2 inhibitöründe glisemik kontrol ibaresi"
+    sut_madde: "DOLDURULACAK"
+    seviye: HATA
+    tetikleyici:
+      hepsi_bulunmali: [SGLT2]
+    ibare: sglt2_glisemik_kontrol
+    mesaj_yok: >-
+      SGLT-2 inhibitörü (dapagliflozin/empagliflozin) tespit edildi. Raporlu
+      reçetede raporda, raporsuz reçetede açıklamada "metformin ve/veya
+      sülfonilürelerin maksimum tolere edilebilir dozlarında yeterli glisemik
+      kontrol sağlanamamış" ibaresi bulunmalıdır; bu ibare tespit edilemedi.
+    mesaj_var: "SGLT-2 inhibitörü için gereken glisemik kontrol ibaresi mevcut."
+
+  - id: DPP4_IBARE
+    tip: cok_kaynakli_ibare_kontrolu
+    kapsam: urun
+    baslik: "DPP-4 inhibitöründe glisemik kontrol ibaresi"
+    sut_madde: "SUT 4.2.38/4"
+    seviye: HATA
+    tetikleyici:
+      hepsi_bulunmali: [DPP4]
+    ibare: sglt2_glisemik_kontrol
+    mesaj_yok: >-
+      DPP-4 inhibitörü (sitagliptin/vildagliptin/saksagliptin/linagliptin)
+      tespit edildi. Raporlu reçetede raporda, raporsuz reçetede açıklamada
+      "metformin ve/veya sülfonilürelerin maksimum tolere edilebilir
+      dozlarında yeterli glisemik kontrol sağlanamamış" ibaresi
+      bulunmalıdır; bu ibare tespit edilemedi.
+    mesaj_var: "DPP-4 inhibitörü için gereken glisemik kontrol ibaresi mevcut."
+
+  - id: DPP4_COKLU
+    tip: tekil_sinif_kontrolu
+    sinif: DPP4
+    azami_urun: 1
+    baslik: "Birden fazla DPP-4 inhibitörü aynı anda"
+    sut_madde: "DOLDURULACAK"
+    seviye: HATA
+    mesaj: >-
+      DPP-4 türevi ilaçlar (sitagliptin, vildagliptin, saksagliptin,
+      linagliptin) birbirleriyle kombine ödenmez. Birden fazla DPP-4 ürünü
+      aynı reçetede/raporda tespit edildi.
+
+  - id: UZUN_INSULIN_COKLU
+    tip: tekil_sinif_kontrolu
+    sinif: INSULIN_UZUN
+    azami_urun: 1
+    baslik: "Birden fazla uzun etkili insülin aynı anda"
+    sut_madde: "DOLDURULACAK"
+    seviye: HATA
+    mesaj: >-
+      Uzun etkili insülinler (ör. Lantus/Glarin/Basaglar, Levemir, Tresiba,
+      Toujeo, Ryzodeg) aynı reçetede birlikte ödenmez. Birden fazla uzun
+      etkili insülin ürünü tespit edildi.
+
+  - id: OZEL_INSULIN_RAPORSUZ_YASAK
+    tip: raporsuz_yasakli_urun
+    baslik: "Ryzodeg/Toujeo raporsuz ödenmez"
+    sut_madde: "DOLDURULACAK"
+    seviye: HATA
+    markalar: [ryzodeg, toujeo]
+    mesaj: >-
+      Ryzodeg ve Toujeo raporsuz kesinlikle ödenmez. Bu ilaç için geçerli bir
+      rapor gereklidir; raporda aranan özel ibareleri SUT'tan kontrol edin.
+
+  - id: BYETTA_DPP4_CELISKI
+    tip: birliktelik_uyarisi
+    kapsam: tumu
+    baslik: "Byetta (GLP-1) ve DPP-4 birlikte"
+    sut_madde: "DOLDURULACAK"
+    seviye: HATA
+    tetikleyici:
+      hepsi_bulunmali: [GLP1, DPP4]
+    mesaj: >-
+      Byetta (eksenatid), DPP-4 türevi ilaçlarla birlikte ödenmez. Yalnızca
+      SGLT-2 inhibitörleri (dapagliflozin, empagliflozin) ile birlikte
+      verilebilir.
+
+  - id: METFORMIN_DOZ_HATIRLATMA
+    tip: bilgi_notu
+    kapsam: tumu
+    baslik: "Metformin toplam günlük doz kontrolü"
+    sut_madde: "DOLDURULACAK"
+    seviye: BILGI
+    tetikleyici:
+      hepsi_bulunmali: [METFORMIN]
+    mesaj: >-
+      Metformin içeren ürün(ler) tespit edildi. Sistem otomatik uyarı
+      vermeyebilir: hastanın kullandığı TÜM metformin içeren ürünlerin
+      toplam günlük dozunun 3000 mg'ı aşmadığını elle kontrol edin.
+
+  - id: SGLT2_TANI_E12_E14_TIP2DM
+    tip: tani_kodu_ibare_kontrolu
+    kapsam: urun
+    baslik: "SGLT-2: E12/E13/E14 tanı kodunda 'Tip-2 DM' ifadesi"
+    sut_madde: "SUT 4.2.38/6"
+    seviye: HATA
+    tetikleyici:
+      hepsi_bulunmali: [SGLT2]
+    tani_onekleri: [E12, E13, E14]
+    mesaj_yok: >-
+      SGLT-2 inhibitörü ile birlikte tanı kodu E12/E13/E14 (ve alt
+      kırılımları) girilmiş. Bu durumda raporda veya reçetede mutlaka
+      "Tip-2 DM" ifadesi yazılmalıdır; bu ifade tespit edilemedi. (E11 tanı
+      kodunda bu ek açıklama gerekmez.)
+    mesaj_var: "E12/E13/E14 tanı kodu için gereken 'Tip-2 DM' ifadesi mevcut."
+
+  - id: SGLT2_DPP4_GLYXAMBI_NOT
+    tip: birliktelik_uyarisi
+    kapsam: tumu
+    baslik: "SGLT-2 + DPP-4 birlikte (Glyxambi tarzı kombinasyon olabilir)"
+    sut_madde: "SUT 4.2.38/8"
+    seviye: UYARI
+    tetikleyici:
+      hepsi_bulunmali: [SGLT2, DPP4]
+    mesaj: >-
+      SGLT-2 ve DPP-4 sınıfından ilaçlar bir arada tespit edildi. Bu özel bir
+      SUT maddesine (empagliflozin+linagliptin kombine preparatı) tabi
+      olabilir; ayrı ayrı mı yoksa tek bir kombinasyon ürünü mü yazıldığını
+      ve madde 4.2.38/8'i kontrol edin.
+
+      
+  - id: GLINID_BRANS
+    tip: brans_kontrolu
+    kapsam: urun
+    baslik: "Glinid/kombine oral antidiyabetik branş kısıtı"
+    sut_madde: "SUT 4.2.38/2"
+    seviye: HATA
+    tetikleyici:
+      herhangi_bulunmali: [GLINID]
+    izinli_branslar: [endokrin, ic hastaliklari, dahiliye, cocuk sagligi, pediatri, kardiyoloji, aile hekim]
+    mesaj_yok: >-
+      Repaglinid/nateglinid raporsuz yalnızca Endokrinoloji, İç Hastalıkları,
+      Çocuk Sağlığı ve Hastalıkları, Kardiyoloji veya Aile Hekimliği uzman
+      hekimlerince yazılabilir; raporlu ise raporu çıkaran hekimin bu
+      branşlardan olması gerekir.
+
+  - id: TZD_ANALOG_INSULIN_BRANS
+    tip: brans_kontrolu
+    kapsam: urun
+    baslik: "Pioglitazon/analog insülin branş kısıtı"
+    sut_madde: "SUT 4.2.38/3"
+    seviye: HATA
+    tetikleyici:
+      herhangi_bulunmali: [TZD, INSULIN_KISA, INSULIN_UZUN]
+    izinli_branslar: [endokrin, ic hastaliklari, dahiliye, cocuk sagligi, pediatri, kardiyoloji]
+    mesaj_yok: >-
+      Pioglitazon ve analog insülinler (Aile Hekimliği HARİÇ) raporsuz yalnızca
+      Endokrinoloji, İç Hastalıkları, Çocuk Sağlığı ve Hastalıkları veya
+      Kardiyoloji uzman hekimlerince yazılabilir; raporlu ise raporu çıkaran
+      hekimin bu branşlardan olması gerekir.
+
+  - id: DIYABET_TANI_KODU_ZORUNLU
+    tip: brans_kontrolu
+    kapsam: urun
+    baslik: "DPP-4/SGLT-2 branş kısıtı"
+    sut_madde: "SUT 4.2.38/4,6"
+    seviye: HATA
+    tetikleyici:
+      herhangi_bulunmali: [DPP4, SGLT2]
+    izinli_branslar: [endokrin, ic hastaliklari, dahiliye]
+    mesaj_yok: >-
+      DPP-4 ve SGLT-2 inhibitörleri raporsuz yalnızca Endokrinoloji veya İç
+      Hastalıkları (Dahiliye) uzman hekimlerince yazılabilir; raporlu ise
+      raporu çıkaran hekimin bu branşlardan olması gerekir.
+      - id: DIYABET_TANI_KODU_ZORUNLU
+    tip: tani_kodu_kontrolu
+    baslik: "Diyabet İlaçları Zorunlu Tanı Kodu Kontrolü"
+    sut_madde: "SUT 4.2.38"
+    seviye: HATA
+    tetikleyici:
+      herhangi_bulunmali: [METFORMIN, SULFONILURE, GLINID, TZD, AKARBOZ, DPP4, SGLT2, GLP1, INSULIN_KISA, INSULIN_UZUN]
+    zorunlu_kodlar: [E10, E11, E12, E13, E14]
+    mesaj_yok: >-
+      Antidiyabetik ilaçlar ve insülinler yalnızca Diabetes Mellitus (E10, E11, E12, E13, E14) tanı kodlarıyla ödenir. Raporda uygun ICD-10 tanı kodu bulunamadı. Reçeteyi ve raporu kontrol ediniz.

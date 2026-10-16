@@ -1,0 +1,9 @@
+# İleride bu projeyi git ile paylaşırsanız, aşağıdakiler asla
+# paylaşılmasın: içinde gizli anahtar olan .env, ve sanal ortam.
+
+.env
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.env

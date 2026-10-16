@@ -1,0 +1,12 @@
+surum: "2026-10-14a"
+kaynak: "SUT 4.2.17.A - Osteoporoz İlaçları"
+
+ayarlar:
+  receteyi_de_degerlendir: true
+
+kurallar:
+  - id: OSTEOPOROZ_T_SKORU_KURALI
+    tip: osteoporoz_kontrolu
+    sut_madde: "SUT 4.2.17.A"
+    tetikleyici:
+      herhangi_bulunmali: [BISFOSFONAT, DENOSUMAB]
