@@ -1,0 +1,110 @@
+surum: "2026-10-13c"
+kaynak: "SUT - Kardiyoloji ve NOAK Kuralları"
+
+ayarlar:
+  receteyi_de_degerlendir: true
+
+kurallar:
+  # KLOPİDOGREL (PLAVIX) + ASA (ASPİRİN) ÇELİŞKİ KURALI
+  - id: KLOPIDOGREL_ASA_CELISKI
+    tip: yasakli_ibare_kontrolu
+    baslik: "Klopidogrel + Aspirin (ASA) ÇELİŞKİSİ!"
+    sut_madde: "SUT 4.2.15.C"
+    seviye: HATA
+    tetikleyici:
+      hepsi_bulunmali: [KLOPIDOGREL, ASA]
+    yasakli_kaliplar:
+      - "asa intoleransı"
+      - "asa intoleransi"
+      - "asetilsalisilik asit intoleransı"
+      - "asa duyarlılığı"
+      - "gis kanaması"
+      - "mide kanaması"
+      - "aspirin alerjisi"
+    mesaj: >-
+      Reçetede Klopidogrel ve Aspirin (ASA) BİRLİKTE yer alıyor, ANCAK raporun açıklama kısmında Aspirin intoleransı veya kanama öyküsü belirtilmiş! Aspirin reçeteden çıkarılmalı veya ücretli verilmelidir.
+
+  # KLOPİDOGREL ZEKİ İBARE KONTROLÜ
+  - id: KLOPIDOGREL_ZORUNLU_IBARE
+    tip: aranan_ibare_kontrolu
+    sut_madde: "SUT 4.2.15.C"
+    seviye: UYARI
+    tetikleyici:
+      hepsi_bulunmali: [KLOPIDOGREL]
+    aranan_kaliplar:
+      - "anjiyo"
+      - "anjio"
+      - "anjiyografi"
+      - "anjiografi"
+      - "angiografi"
+      - "stent"
+      - "koroner bypass"
+      - "cabg"
+      - "biyoprotez"
+      - "anjiografik"
+      - "iskemik inme"
+      - "tıkayıcı periferik"
+      - "akut koroner"
+      - "aks"
+      - "nstemi"
+      - "stemi"
+      - "asa intolerans"
+      - "gis intol"
+      - "gis kanama"
+      - "mide kanama"
+    baslik_yok: "Klopidogrel Zorunlu İbare Eksik (Manuel Kontrol)"
+    mesaj_yok: >-
+      Raporda stent, anjiyografi, CABG, iskemik inme, tıkayıcı periferik arter veya AKS gibi Klopidogrel ödemesine esas teşkil eden spesifik bir ibare tespit edilemedi. Lütfen rapor açıklamasını gözle kontrol edin.
+    baslik_var: "Klopidogrel Şartları Sağlandı"
+    mesaj_var: >-
+      Raporda Klopidogrel kullanımı için geçerli bir tıbbi ibare/teşhis bulundu.
+
+  # İVABRADİN ZEKİ İBARE KONTROLÜ
+  - id: IVABRADIN_KURALI
+    tip: aranan_ibare_kontrolu
+    sut_madde: "SUT"
+    seviye: UYARI
+    tetikleyici:
+      hepsi_bulunmali: [IVABRADIN]
+    aranan_kaliplar:
+      - "beta blokör"
+      - "beta bloker"
+      - "verapamil"
+      - "diltiazem"
+      - "kalp hızı"
+    baslik_yok: "İvabradin (Coralan) Şartları Eksik"
+    mesaj_yok: >-
+      İvabradin ödemesi için raporda "Beta bloker intoleransı", "kalp hızı > 75" veya "verapamil/diltiazem kontrendikasyonu" gibi spesifik ibareler bulunmalıdır.
+    baslik_var: "İvabradin Şartları Sağlandı"
+    mesaj_var: >-
+      Raporda İvabradin ödemesi için gerekli beta bloker veya kalp hızı ibareleri tespit edildi.
+
+  # NOAK KOMBİNASYON YASAĞI
+  - id: NOAK_KOMBINE_YASAK
+    tip: tekil_sinif_kontrolu
+    sinif: NOAK
+    azami_urun: 1
+    baslik: "NOAK İlaçları Birlikte Kullanılmaz"
+    sut_madde: "SUT"
+    seviye: HATA
+    mesaj: >-
+      Yeni nesil kan sulandırıcılar (NOAK) BİRLİKTE kombine edilemez.
+
+  # NOAK ZEKİ İBARE KONTROLÜ
+  - id: NOAK_VARFARIN_SARTI
+    tip: aranan_ibare_kontrolu
+    sut_madde: "SUT"
+    seviye: UYARI
+    tetikleyici:
+      herhangi_bulunmali: [NOAK]
+    aranan_kaliplar:
+      - "varfarin"
+      - "coumadin"
+      - "inr"
+    baslik_yok: "NOAK Varfarin Kullanım Şartı Eksik"
+    mesaj_yok: >-
+      NOAK'ların ödenmesi için raporda "En az 2 ay süre ile varfarin kullanıldığı ve hedeflenen INR'ye ulaşılamadığı" yazmalıdır. Bu ibare bulunamadı.
+    baslik_var: "Varfarin Kullanım İbaresi Mevcut"
+    mesaj_var: >-
+      Raporda Varfarin (Coumadin) / INR kullanıldığına dair ibare tespit edildi.
+      

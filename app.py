@@ -131,7 +131,7 @@ with sol:
             key="rapor_fotolar",
         )
         if rapor_fotolar and st.button("Fotoğrafları oku", key="oku_buton"):
-            with st.spinner("Gemini tüm raporları inceliyor, lütfen bekleyin..."):
+            with st.spinner("Okunuyor..."):
                 try:
                     tum_metin = ""
                     tum_hastaliklar = []
@@ -153,6 +153,14 @@ with sol:
                         if ham.get("ldl_degeri"):
                             en_guncel_ldl = ham.get("ldl_degeri")
                             en_guncel_tarih = ham.get("tarih")
+                        if ham.get("duzenleme_tarihi"):
+                            st.session_state["r_bas_alan"] = tarih_coz(ham.get("duzenleme_tarihi"))
+                        if ham.get("bitis_tarihi"):
+                            st.session_state["r_bit_alan"] = tarih_coz(ham.get("bitis_tarihi"))
+                        if ham.get("hekim_branslari"):
+                            st.session_state["r_brans_alan"] = ", ".join(ham.get("hekim_branslari"))
+
+                    
                     
                     if en_guncel_tarih:
                         st.session_state["r_tarih_alan"] = tarih_coz(en_guncel_tarih)
@@ -250,7 +258,7 @@ with sag:
             key="recete_foto",
         )
         if recete_foto is not None and st.button("Fotoğraftan oku", key="oku_recete_buton"):
-            with st.spinner("Gemini reçete fotoğrafını okuyor..."):
+            with st.spinner("Okunuyor..."):
                 try:
                     ham_rec = recete_oku_onbellekli(recete_foto.getvalue())
                     st.session_state["rec_no"] = ham_rec.get("recete_no") or ""
@@ -325,13 +333,39 @@ with sag:
                 osteo_t_skor = st.number_input("📉 T-Skoru:", min_value=-6.0, max_value=2.0, value=-2.5, step=0.1, key="rec_osteo_tskor")
 
 
+def ekrani_temizle():
+    st.session_state.clear()
+    for alan in [
+        "r_tani_alan", "r_brans_alan", "r_ilaclar_alan", "r_metin_alan",
+        "rec_brans_alan", "rec_ilaclar_alan", "rec_aciklama_alan"
+    ]:
+        st.session_state[alan] = ""
+    st.session_state["r_bas_alan"] = date.today()
+    st.session_state["r_bit_alan"] = date.today()
+    st.session_state["rec_tarih_alan"] = date.today()
+    st.session_state["r_t_skoru_dinamik"] = None
+    st.session_state["r_yas_dinamik"] = 65
+    st.session_state["r_ldl_alan"] = None
+    st.session_state["r_ldl_2_alan"] = None
+    st.session_state["r_risk"] = []
+    st.session_state["r_idame"] = False
+    st.session_state["r_6_ay_ara"] = False
+    st.session_state["rapor_yok"] = False
+
 onay = True
-if st.session_state["foto_okundu"] or st.session_state["recete_foto_okundu"]:
+if st.session_state.get("foto_okundu") or st.session_state.get("recete_foto_okundu"):
     onay = st.checkbox(
         "Fotoğraftan okunan alanları belgeyle karşılaştırdım ve gerekli düzeltmeleri yaptım."
     )
 
-if st.button("Kontrol et", type="primary", use_container_width=True, disabled=not onay):
+col_btn1, col_btn2 = st.columns([3, 1])
+with col_btn1:
+    kontrol_basildi = st.button("🔍 Kontrol et", type="primary", use_container_width=True, disabled=not onay)
+with col_btn2:
+    st.button("🧹 Yeni Hasta / Temizle", use_container_width=True, on_click=ekrani_temizle)
+
+if kontrol_basildi:
+    
     if not ks_listesi:
         st.error("Hiçbir kural dosyası yüklenemedi. 'kurallar' klasörünü kontrol edin.")
         st.stop()
