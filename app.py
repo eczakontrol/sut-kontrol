@@ -207,7 +207,8 @@ with sol:
     r_ldl_2 = None
     r_ldl_tarihi_2 = None
     risk_faktorleri = []
-    
+    r_risk = []
+
     
     statin_ilaclar = ["statin", "atorvastatin", "rosuvastatin", "pitavastatin", "pravastatin", "simvastatin", "fluvastatin", "lipitor", "crestor", "zocor", "kolestor"]
     
