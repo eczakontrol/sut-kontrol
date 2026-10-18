@@ -717,7 +717,7 @@ def _aranan_ibare_kurali(kural: dict, rapor: Rapor, recete: Recete | None, havuz
     
 
 def _osteoporoz_kurali(kural: dict, rapor: Rapor, recete: Recete | None, havuz: list[Ilac]) -> list[Bulgu]:
-    """Osteoporoz ilaçlarında T-Skoru (<= -2.5) veya Patolojik Kırık denetimi yapar."""
+    """Osteoporoz ilaçlarında Yaş, Kırık ve T-Skoru denetimi yapar."""
     tetikleyici = kural.get("tetikleyici", {})
     gruplar = _gruplar(havuz, "urun")
     tetikleyen = [e for e, s in gruplar if _tetiklendi_mi(tetikleyici, s)]
@@ -726,50 +726,41 @@ def _osteoporoz_kurali(kural: dict, rapor: Rapor, recete: Recete | None, havuz: 
         return []
         
     metin = (rapor.serbest_metin or "").lower()
-    
-    # 1. İSTİSNA KONTROLÜ: Patolojik kırık varsa skora bakılmaz
-    if "patolojik kırık" in metin or "patolojik kirik" in metin:
-        return [Bulgu(
-            kural_id=kural["id"]+"_KIRIK", 
-            seviye="BILGI", 
-            baslik="Patolojik Kırık Mevcut (T-Skoru Aranmaz)", 
-            mesaj="Raporda 'Patolojik kırık' ibaresi bulunduğu için DEXA T-Skoru şartı aranmaz. Ödenir.", 
-            sut_madde=kural.get("sut_madde"), 
-            kanit="Bulunan İbare: Patolojik Kırık"
-        )]
-        
-    # 2. T-SKORU KONTROLÜ
+    yas = getattr(rapor, "hasta_yasi", 65) or 65
     t_skoru = getattr(rapor, "t_skoru", None)
     
-    if t_skoru is None:
-        return [Bulgu(
-            kural_id=kural["id"]+"_EKS", 
-            seviye="HATA", 
-            baslik="DEXA T-Skoru Eksik", 
-            mesaj="Osteoporoz ilacı tespit edildi ancak DEXA T-Skoru girilmemiş. Raporda patolojik kırık ibaresi de bulunmuyor. Lütfen T-Skorunu girin.", 
-            sut_madde=kural.get("sut_madde"), 
-            kanit=f"Tetikleyen: {', '.join(tetikleyen)}"
-        )]
-        
-    if t_skoru <= -2.5:
-        return [Bulgu(
-            kural_id=kural["id"]+"_OK", 
-            seviye="BILGI", 
-            baslik="T-Skoru SUT'a Uygun", 
-            mesaj=f"DEXA T-Skoru ({t_skoru}) -2.5 veya daha düşük, şartlar sağlanıyor.", 
-            sut_madde=kural.get("sut_madde"), 
-            kanit=f"T-Skoru: {t_skoru}"
-        )]
-    else:
-        return [Bulgu(
-            kural_id=kural["id"]+"_HATA", 
-            seviye="HATA", 
-            baslik="T-Skoru YETERSİZ! (Kesinti Sebebi)", 
-            mesaj=f"DEXA T-Skoru ({t_skoru}), SUT'un belirlediği sınır olan -2.5'ten YÜKSEK. Patolojik kırık öyküsü yoksa bu ilaç KESİN OLARAK KESİLİR.", 
-            sut_madde=kural.get("sut_madde"), 
-            kanit=f"T-Skoru: {t_skoru}"
-        )]
+    # 1. 75 YAŞ ÜZERİ İSTİSNASI
+    if yas >= 75:
+        return [Bulgu(kural_id=kural["id"]+"_YAS", seviye="BILGI", baslik="75 Yaş Üzeri (Skor Aranmaz)", mesaj=f"Hasta {yas} yaşında. 75 yaş ve üzeri hastalarda T-Skoru veya kırık şartı aranmaksızın ödenir.", sut_madde=kural.get("sut_madde"), kanit=f"Girilen Yaş: {yas}")]
 
+    # 2. PATOLOJİK KIRIK İSTİSNASI (T-Skoru <= -1.0 yeterli)
+    if "patolojik kırık" in metin or "patolojik kirik" in metin:
+        if t_skoru is not None and t_skoru <= -1.0:
+            return [Bulgu(kural_id=kural["id"]+"_KIRIK_OK", seviye="BILGI", baslik="Patolojik Kırık Mevcut", mesaj=f"Raporda kırık mevcut. T-Skoru ({t_skoru}) sınır olan -1.0 ve altında. Ödenir.", sut_madde=kural.get("sut_madde"), kanit=f"T-Skoru: {t_skoru}")]
+        elif t_skoru is None:
+            return [Bulgu(kural_id=kural["id"]+"_KIRIK_EKS", seviye="HATA", baslik="T-Skoru Eksik", mesaj="Kırığı olan hastalarda T-Skorunun en az -1.0 olması gerekir. Skoru giriniz.", sut_madde=kural.get("sut_madde"), kanit="")]
+        else:
+            return [Bulgu(kural_id=kural["id"]+"_KIRIK_HATA", seviye="HATA", baslik="Kırık Var Ama Skor Yetersiz!", mesaj=f"Patolojik kırığı olanlarda T-Skoru en fazla -1.0 olabilir. Girilen: {t_skoru}. Ödenmez!", sut_madde=kural.get("sut_madde"), kanit=f"T-Skoru: {t_skoru}")]
+
+    # T-Skoru girilmemişse hata ver
+    if t_skoru is None:
+        return [Bulgu(kural_id=kural["id"]+"_EKS", seviye="HATA", baslik="DEXA T-Skoru Eksik", mesaj="Osteoporoz tespiti için DEXA T-Skorunu girmelisiniz.", sut_madde=kural.get("sut_madde"), kanit=f"Tetikleyen: {', '.join(tetikleyen)}")]
+
+    # 3. 65 YAŞ VE ÜZERİ (Kırıksız)
+    if yas >= 65:
+        if t_skoru <= -2.5:
+            return [Bulgu(kural_id=kural["id"]+"_65_OK", seviye="BILGI", baslik="65+ Yaş Uygun", mesaj=f"{yas} yaşındaki hastada T-Skoru ({t_skoru}) sınır olan -2.5 ve altında. Ödenir.", sut_madde=kural.get("sut_madde"), kanit=f"Yaş: {yas}, Skor: {t_skoru}")]
+        else:
+            return [Bulgu(kural_id=kural["id"]+"_65_HATA", seviye="HATA", baslik="Yetersiz T-Skoru! (Kesinti Sebebi)", mesaj=f"65 yaş ve üzeri hastalarda T-Skoru en az -2.5 olmalıdır. Girilen: {t_skoru}. Ödenmez!", sut_madde=kural.get("sut_madde"), kanit=f"Yaş: {yas}, Skor: {t_skoru}")]
+
+    # 4. 65 YAŞ ALTI (Kırıksız)
+    if yas < 65:
+        if t_skoru <= -3.0:
+            return [Bulgu(kural_id=kural["id"]+"_GENC_OK", seviye="BILGI", baslik="65 Yaş Altı Uygun", mesaj=f"{yas} yaşındaki hastada T-Skoru ({t_skoru}) sınır olan -3.0 ve altında. Ödenir.", sut_madde=kural.get("sut_madde"), kanit=f"Yaş: {yas}, Skor: {t_skoru}")]
+        else:
+            return [Bulgu(kural_id=kural["id"]+"_GENC_HATA", seviye="HATA", baslik="Yetersiz T-Skoru! (Kesinti Sebebi)", mesaj=f"65 yaş altı hastalarda T-Skoru en az -3.0 olmalıdır. Girilen: {t_skoru}. Ödenmez!", sut_madde=kural.get("sut_madde"), kanit=f"Yaş: {yas}, Skor: {t_skoru}")]
+
+        
     
 def calistir(rapor: Rapor, recete: Recete | None, ks: KuralSeti) -> Sonuc:
     """Kural setini verilen rapor ve reçete üzerinde çalıştırır."""

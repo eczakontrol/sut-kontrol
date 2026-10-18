@@ -54,6 +54,7 @@ class Rapor(BaseModel):
     ldl_tarihi_2: date | None = None
     risk_faktorleri: list[str] = Field(default_factory=list)
     t_skoru: float | None = None
+    hasta_yasi: int | None = None
 
 
 class Recete(BaseModel):
