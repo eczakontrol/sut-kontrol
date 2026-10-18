@@ -7,6 +7,13 @@ from datetime import date
 from pathlib import Path
 
 import streamlit as st
+# Sayfa sekmesi ve genişlik ayarı (Bu satır tüm st. kodlarından önce olmalı!)
+st.set_page_config(page_title="SUTCheck", page_icon="✅", layout="centered")
+
+# Şık ve modern ana başlık
+st.markdown("<h1 style='text-align: center; color: #003c71;'>✅ SUTCheck</h1>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: gray;'>Yapay Zeka Destekli Reçete ve Rapor Analizi</p>", unsafe_allow_html=True)
+st.divider()
 
 from sut import gorsel, ilac, katalog, motor
 from sut.semalar import Ilac, Rapor, Recete, Sonuc
@@ -106,109 +113,105 @@ for _anahtar, _deger in {
 
 ks_listesi = kural_setleri()
 
-st.title("SUT kontrol")
-if ks_listesi:
-    ozet = " · ".join(f"{ad} (sürüm {ks.surum})" for ad, ks in ks_listesi)
-else:
-    ozet = "HİÇBİR KURAL DOSYASI BULUNAMADI"
-st.caption(f"Kural setleri: {ozet} — karar destek aracıdır, nihai sorumluluk kullanıcıdadır.")
+st.markdown("<p style='text-align: center; font-size: 16px; font-weight: bold; color: #a3a8b8;'>DİYABET • STATİN • OSTEOPOROZ • KLOPİDOGREL</p>", unsafe_allow_html=True)
+
 
 sol, sag = st.columns(2)
 
 with sol:
-    st.subheader("Rapor")
+    st.subheader("📄 Rapor")
     
-    # --- ÇOKLU FOTOĞRAF YÜKLEME KISMI ---
-    rapor_fotolar = st.file_uploader(
-        "Rapor fotoğrafları (Birden fazla seçebilirsiniz)",
-        type=["jpg", "jpeg", "png"],
-        accept_multiple_files=True,
-        key="rapor_fotolar",
-    )
-    
-    if rapor_fotolar and st.button("Fotoğrafları oku", key="oku_buton"):
-        with st.spinner("Gemini tüm raporları inceliyor, lütfen bekleyin..."):
-            try:
-                tum_metin = ""
-                tum_hastaliklar = []
-                tum_tanilar = []
-                tum_ilaclar = []
-                en_guncel_ldl = None
-                en_guncel_tarih = None
-                
-                for foto in rapor_fotolar:
-                    ham = rapor_oku_onbellekli(foto.getvalue())
+    # 1. KART: FOTOĞRAF YÜKLEME
+    with st.container(border=True):
+        rapor_fotolar = st.file_uploader(
+            "Rapor fotoğrafları (Birden fazla seçebilirsiniz)",
+            type=["jpg", "jpeg", "png"],
+            accept_multiple_files=True,
+            key="rapor_fotolar",
+        )
+        if rapor_fotolar and st.button("Fotoğrafları oku", key="oku_buton"):
+            with st.spinner("Gemini tüm raporları inceliyor, lütfen bekleyin..."):
+                try:
+                    tum_metin = ""
+                    tum_hastaliklar = []
+                    tum_tanilar = []
+                    tum_ilaclar = []
+                    en_guncel_ldl = None
+                    en_guncel_tarih = None
                     
-                    if ham.get("serbest_metin"):
-                        tum_metin += ham.get("serbest_metin") + "\n\n--- DİĞER RAPOR ---\n\n"
-                    if ham.get("hastaliklar"):
-                        tum_hastaliklar.extend(ham.get("hastaliklar"))
-                    if ham.get("tani_kodlari"):
-                        tum_tanilar.extend(ham.get("tani_kodlari"))
-                    if ham.get("ilaclar"):
-                        tum_ilaclar.extend([i.get("ad") for i in ham.get("ilaclar") if i.get("ad")])
+                    for foto in rapor_fotolar:
+                        ham = rapor_oku_onbellekli(foto.getvalue())
+                        if ham.get("serbest_metin"):
+                            tum_metin += ham.get("serbest_metin") + "\n\n--- DİĞER RAPOR ---\n\n"
+                        if ham.get("hastaliklar"):
+                            tum_hastaliklar.extend(ham.get("hastaliklar"))
+                        if ham.get("tani_kodlari"):
+                            tum_tanilar.extend(ham.get("tani_kodlari"))
+                        if ham.get("ilaclar"):
+                            tum_ilaclar.extend([i.get("ad") for i in ham.get("ilaclar") if i.get("ad")])
+                        if ham.get("ldl_degeri"):
+                            en_guncel_ldl = ham.get("ldl_degeri")
+                            en_guncel_tarih = ham.get("tarih")
+                    
+                    if en_guncel_tarih:
+                        st.session_state["r_tarih_alan"] = tarih_coz(en_guncel_tarih)
+                    if en_guncel_ldl:
+                        st.session_state["r_ldl_alan"] = float(en_guncel_ldl)
                         
-                    if ham.get("ldl_degeri"):
-                        en_guncel_ldl = ham.get("ldl_degeri")
-                        en_guncel_tarih = ham.get("tarih")
-                
-                # Verileri ekrana yazdır (Tekrarları set() ile silerek)
-                if en_guncel_tarih:
-                    st.session_state["r_tarih_alan"] = tarih_coz(en_guncel_tarih)
-                if en_guncel_ldl:
-                    st.session_state["r_ldl_alan"] = float(en_guncel_ldl)
-                    
-                st.session_state["r_hastaliklar_alan"] = list(set(tum_hastaliklar)) 
-                st.session_state["r_tanilar_alan"] = ", ".join(list(set(tum_tanilar)))
-                st.session_state["r_ilaclar_alan"] = "\n".join(list(set(tum_ilaclar)))
-                st.session_state["r_metin_alan"] = tum_metin.strip()
-                
-                st.session_state["rapor_foto_okundu"] = True
-                st.success("Tüm fotoğraflar okundu ve başarıyla harmanlandı!")
-            except Exception as e:
-                st.error(f"Fotoğraf okunamadı: {e}")
-    # ------------------------------------
+                    st.session_state["r_hastaliklar_alan"] = list(set(tum_hastaliklar)) 
+                    st.session_state["r_tanilar_alan"] = ", ".join(list(set(tum_tanilar)))
+                    st.session_state["r_ilaclar_alan"] = "\n".join(list(set(tum_ilaclar)))
+                    st.session_state["r_metin_alan"] = tum_metin.strip()
+                    st.session_state["rapor_foto_okundu"] = True
+                    st.success("Tüm fotoğraflar okundu ve harmanlandı!")
+                except Exception as e:
+                    st.error(f"Fotoğraf okunamadı: {e}")
 
-   
-    c1, c2 = st.columns(2)
-    r_bas = c1.date_input("Düzenleme tarihi", key="r_bas_alan", format="DD.MM.YYYY")
-    r_bit = c2.date_input("Bitiş tarihi", key="r_bit_alan", format="DD.MM.YYYY")
-    r_tani = st.text_input("Tanı kodları (virgülle ayırın)", key="r_tani_alan")
-    r_brans = st.text_input("Hekim branşları (virgülle ayırın)", key="r_brans_alan")
-    r_ilaclar = st.text_area(
-        "Rapordaki ilaçlar — her satıra BİR ÜRÜN (kutu)",
-        height=110,
-        key="r_ilaclar_alan",
-    )
-    r_metin = st.text_area(
-        "Raporun serbest metni (tanı, açıklama, not alanlarının tamamı)",
-        height=150,
-        key="r_metin_alan",
-    )
-    
-# --- DİNAMİK ARAYÜZ (SADECE İLGİLİ İLAÇ YAZILINCA AÇILIR) ---
-    
-    # Ekrana girilen tüm ilaçları birleştirip kontrol ediyoruz
+    # 2. KART: TEMEL BİLGİLER
+    with st.container(border=True):
+        c1, c2 = st.columns(2)
+        r_bas = c1.date_input("Düzenleme tarihi", key="r_bas_alan", format="DD.MM.YYYY")
+        r_bit = c2.date_input("Bitiş tarihi", key="r_bit_alan", format="DD.MM.YYYY")
+        r_tani = st.text_input("Tanı kodları (virgülle ayırın)", key="r_tani_alan")
+        r_brans = st.text_input("Hekim branşları (virgülle ayırın)", key="r_brans_alan")
+        
+    # 3. ÇEKMECE: GİZLİ METİN KUTULARI (Göz yormaması için kapalı gelir)
+    with st.expander("📝 Rapor İlaçları ve Serbest Metni Düzenle", expanded=False):
+        st.caption("Yapay zeka bu alanları fotoğraftan otomatik doldurur. Manuel müdahale için burayı kullanabilirsiniz.")
+        r_ilaclar = st.text_area(
+            "Rapordaki ilaçlar — her satıra BİR ÜRÜN (kutu)",
+            height=110,
+            key="r_ilaclar_alan",
+        )
+        r_metin = st.text_area(
+            "Raporun serbest metni (tanı, açıklama, not alanlarının tamamı)",
+            height=150,
+            key="r_metin_alan",
+        )
+
+    # --- DİNAMİK ARAYÜZ ---
     aktif_ilaclar = (st.session_state.get("r_ilaclar_alan", "") + " " + st.session_state.get("rec_ilaclar_alan", "")).lower()
     
-    # 1. OSTEOPOROZ KONTROLÜ
     r_t_skoru = None
+    r_yas = None
     osteo_ilaclar = ["alendronat", "risedronat", "ibandronik", "zoledronik", "denosumab", "fosamax", "actonel", "bonviva", "aclasta", "prolia"]
     
     if any(ilac in aktif_ilaclar for ilac in osteo_ilaclar):
-        st.info("🦴 Osteoporoz ilacı algılandı. Lütfen raporun DEXA skorunu girin:")
-        r_t_skoru = st.number_input("DEXA T-Skoru (Örn: -2.6)", value=None, format="%.2f", key="r_t_skoru_dinamik")
+        with st.container(border=True):
+            st.info("🦴 Osteoporoz Rapor Bilgileri:")
+            col_o1, col_o2 = st.columns(2)
+            with col_o1:
+                r_yas = st.number_input("👤 Hasta Yaşı:", min_value=1, max_value=120, value=65, step=1, key="r_yas_dinamik")
+            with col_o2:
+                r_t_skoru = st.number_input("📉 DEXA T-Skoru:", value=None, format="%.2f", key="r_t_skoru_dinamik")
 
-    # 2. STATİN (KOLERSTEROL) KONTROLÜ
     r_idame = False
     r_6_ay_ara = False
     r_ldl = None
     r_ldl_tarihi = None
     r_ldl_2 = None
     r_ldl_tarihi_2 = None
-    risk_faktorleri = []
     r_risk = []
-
     
     statin_ilaclar = ["statin", "atorvastatin", "rosuvastatin", "pitavastatin", "pravastatin", "simvastatin", "fluvastatin", "lipitor", "crestor", "zocor", "kolestor"]
     
@@ -224,92 +227,102 @@ with sol:
             c3, c4 = st.columns(2)
             r_ldl_2 = c3.number_input("Eski / 2. LDL (Gerekliyse)", value=None, format="%f", key="r_ldl_2_alan")
             r_ldl_tarihi_2 = c4.date_input("2. LDL Tarihi", value=None, key="r_ldl_tarihi_2_alan")                     
-        r_risk = st.multiselect(
-            "Ek Risk Faktörleri ve Yüksek Riskli Hastalıklar",
-            options=[
-                "Diyabet (Diabetes Mellitus)", 
-                "Hipertansiyon", 
-                "Geçirilmiş MI / Akut Koroner Sendrom", 
-                "Geçirilmiş İnme", 
-                "Koroner Arter Hastalığı (KAH)", 
-                "Periferik Arter Hastalığı (PAH)",
-                "Abdominal Aort Anevrizması", 
-                "Karotis Arter Hastalığı",
-                "Ailede erken kardiyovasküler hastalık öyküsü", 
-                "65 yaş ve üzeri"
-            ],
-            key="r_risk"
-        )
-
+            r_risk = st.multiselect(
+                "Ek Risk Faktörleri ve Yüksek Riskli Hastalıklar",
+                options=[
+                    "Diyabet (Diabetes Mellitus)", "Hipertansiyon", "Geçirilmiş MI / Akut Koroner Sendrom", 
+                    "Geçirilmiş İnme", "Koroner Arter Hastalığı (KAH)", "Periferik Arter Hastalığı (PAH)",
+                    "Abdominal Aort Anevrizması", "Karotis Arter Hastalığı",
+                    "Ailede erken kardiyovasküler hastalık öyküsü", "65 yaş ve üzeri"
+                ],
+                key="r_risk"
+            )
 
 with sag:
-    st.subheader("Reçete")
+    st.subheader("🧾 Reçete")
     
-    # --- GERİ GETİRİLEN REÇETE FOTOĞRAF YÜKLEME KISMI ---
-    recete_foto = st.file_uploader(
-        "Reçete fotoğrafı (opsiyonel — alanları otomatik doldurur)",
-        type=["jpg", "jpeg", "png"],
-        key="recete_foto",
-    )
-    if recete_foto is not None and st.button("Fotoğraftan oku", key="oku_recete_buton"):
-        with st.spinner("Gemini reçete fotoğrafını okuyor, birkaç saniye sürebilir..."):
-            try:
-                ham_rec = recete_oku_onbellekli(recete_foto.getvalue())
-                
-                st.session_state["rec_no"] = ham_rec.get("recete_no") or ""
-                st.session_state["rec_tarih_alan"] = tarih_coz(ham_rec.get("tarih")) or date.today()
-                st.session_state["rec_brans_alan"] = ham_rec.get("hekim_bransi") or ""
-                
-                st.session_state["rec_ilaclar_alan"] = "\n".join(
-                    i.get("ad") for i in (ham_rec.get("ilaclar") or []) if i.get("ad")
-                )
-                st.session_state["rec_aciklama_alan"] = ham_rec.get("aciklama") or ""
-                
-                st.session_state["rec_var"] = True  # Reçete var kutusunu otomatik işaretle
-                st.session_state["recete_foto_okundu"] = True
-                st.success("Fotoğraf okundu — aşağıdaki alanları MUTLAKA belgeyle karşılaştırın.")
-            except Exception as e:
-                st.error(f"Fotoğraf okunamadı: {e}")
-    # ----------------------------------------------------
-    
-    rec_var = st.checkbox("Reçete de kontrol edilsin", key="rec_var")
+    # 1. KART: FOTOĞRAF VE ONAYLAR
+    with st.container(border=True):
+        recete_foto = st.file_uploader(
+            "Reçete fotoğrafı (opsiyonel)",
+            type=["jpg", "jpeg", "png"],
+            key="recete_foto",
+        )
+        if recete_foto is not None and st.button("Fotoğraftan oku", key="oku_recete_buton"):
+            with st.spinner("Gemini reçete fotoğrafını okuyor..."):
+                try:
+                    ham_rec = recete_oku_onbellekli(recete_foto.getvalue())
+                    st.session_state["rec_no"] = ham_rec.get("recete_no") or ""
+                    st.session_state["rec_tarih_alan"] = tarih_coz(ham_rec.get("tarih")) or date.today()
+                    st.session_state["rec_brans_alan"] = ham_rec.get("hekim_bransi") or ""
+                    st.session_state["rec_ilaclar_alan"] = "\n".join(
+                        i.get("ad") for i in (ham_rec.get("ilaclar") or []) if i.get("ad")
+                    )
+                    st.session_state["rec_aciklama_alan"] = ham_rec.get("aciklama") or ""
+                    st.session_state["rec_var"] = True
+                    st.session_state["recete_foto_okundu"] = True
+                    st.success("Fotoğraf okundu — alanları belgeyle karşılaştırın.")
+                except Exception as e:
+                    st.error(f"Fotoğraf okunamadı: {e}")
+                    
+        col_onay1, col_onay2 = st.columns(2)
+        with col_onay1:
+            rec_var = st.checkbox("Reçete de kontrol edilsin", key="rec_var", value=True)
+        with col_onay2:
+            rapor_yok = st.checkbox("Bu reçete raporsuz", key="rapor_yok", disabled=not rec_var)
 
+    # 2. KART: TEMEL REÇETE BİLGİLERİ
+    with st.container(border=True):
+        rec_tarih = st.date_input("Reçete tarihi", key="rec_tarih_alan", format="DD.MM.YYYY", disabled=not rec_var)
+        
+        # ARB / Osteo Ön Kontrolleri (İlaçları çekmeceden okumadan önce yapay zeka hafızası için)
+        rec_ilaclar_gecici = st.session_state.get("rec_ilaclar_alan", "")
+        recete_metni = rec_ilaclar_gecici.replace('İ', 'i').replace('I', 'ı').lower() if rec_ilaclar_gecici else ""
+        arb_kelimeleri = ["valsartan", "losartan", "kandesartan", "irbesartan", "olmesartan", "telmisartan", "diovan", "atacand", "micardis", "karvea", "co-diovan", "exforge", "tensart", "hyzaar", "ayra"]
+        arb_var = any(kelime in recete_metni for kelime in arb_kelimeleri)
+        osteo_kelimeleri = ["alendronat", "risedronat", "ibandronat", "zolendronik", "denosumab", "fosamax", "fosomx", "actonel", "bonviva", "zometa", "aclesta", "prolia", "fosavance"]
+        osteo_var = any(kelime in recete_metni for kelime in osteo_kelimeleri)
 
-    rapor_yok = st.checkbox(
-        "Bu reçete raporsuz (rapora dayanmıyor)",
-        key="rapor_yok",
-        disabled=not rec_var,
-        help="İşaretlerseniz soldaki rapor bilgileri yok sayılır.",
-    )
-    
-    rec_tarih = st.date_input(
-        "Reçete tarihi", key="rec_tarih_alan", format="DD.MM.YYYY", disabled=not rec_var
-    )
-    rec_brans = st.text_input(
-        "Reçeteyi yazan hekimin branşı",
-        key="rec_brans_alan",
-        disabled=not rec_var,
-        placeholder="Aile hekimliği",
-    )
-    rec_ilaclar = st.text_area(
-        "Reçetedeki ilaçlar — her satıra BİR ÜRÜN (kutu)",
-        height=110,
-        key="rec_ilaclar_alan",
-        disabled=not rec_var,
-    )
-    rec_kutu = st.number_input(
-        "ARB içeren ürünlerin toplam kutu sayısı",
-        min_value=0,
-        step=1,
-        key="rec_kutu",
-        disabled=not rec_var,
-    )
-    rec_aciklama = st.text_area(
-        "Reçete açıklaması",
-        height=100,
-        key="rec_aciklama_alan",
-        disabled=not rec_var,
-    )
+        col_rec1, col_rec2 = st.columns(2)
+        with col_rec1:
+            rec_brans = st.text_input("Hekim Branşı", key="rec_brans_alan", disabled=not rec_var, placeholder="Aile hekimliği")
+        with col_rec2:
+            if arb_var:
+                rec_kutu = st.number_input("💊 ARB Kutu:", min_value=1, max_value=10, value=1, key="rec_kutu_yeni")
+            else:
+                rec_kutu = 0
+
+    # 3. ÇEKMECE: REÇETE İLAÇLARI VE AÇIKLAMA
+    with st.expander("💊 Reçete İlaçları ve Açıklama (Manuel Düzenle)", expanded=False):
+        rec_ilaclar = st.text_area(
+            "Reçetedeki ilaçlar — her satıra BİR ÜRÜN",
+            height=110,
+            key="rec_ilaclar_alan",
+            disabled=not rec_var,
+        )
+        rec_aciklama = st.text_area(
+            "Reçete açıklaması",
+            height=80,
+            key="rec_aciklama_alan",
+            disabled=not rec_var,
+        )
+
+    # REÇETE OSTEOPOROZ KESİN KONTROL MENÜSÜ
+    osteo_yas = 0
+    osteo_kirik = "Yok"
+    osteo_t_skor = 0.0
+
+    if osteo_var:
+        with st.container(border=True):
+            st.info("🦴 Reçetede Osteoporoz İlacı Tespit Edildi")
+            col_ost1, col_ost2, col_ost3 = st.columns(3)
+            with col_ost1:
+                osteo_yas = st.number_input("👤 Yaş:", min_value=1, max_value=120, value=65, key="rec_osteo_yas")
+            with col_ost2:
+                osteo_kirik = st.selectbox("💥 Kırık?", ["Yok", "Var"], key="rec_osteo_kirik")
+            with col_ost3:
+                osteo_t_skor = st.number_input("📉 T-Skoru:", min_value=-6.0, max_value=2.0, value=-2.5, step=0.1, key="rec_osteo_tskor")
+
 
 onay = True
 if st.session_state["foto_okundu"] or st.session_state["recete_foto_okundu"]:
@@ -321,7 +334,28 @@ if st.button("Kontrol et", type="primary", use_container_width=True, disabled=no
     if not ks_listesi:
         st.error("Hiçbir kural dosyası yüklenemedi. 'kurallar' klasörünü kontrol edin.")
         st.stop()
+     # --- KESİN SUT KURALLARI (Yapay Zekadan Bağımsız) ---
+    hekim_bransi = rec_brans.replace('İ', 'i').replace('I', 'ı').lower() if rec_brans else ""
+    
+    # 1. ARB Kuralı
+    if arb_var and rec_kutu > 1 and "aile hekim" in hekim_bransi:
+        st.error("🚨 SUT KESİNTİ RİSKİ: Aile Hekimleri raporsuz durumlarda ARB grubu ilaçları en fazla 1 aylık tedavi dozunda yazabilir. Fazlası ödenmez!")
+        st.stop()
 
+    # 2. OSTEOPOROZ Kuralı
+    if osteo_var:
+        if osteo_yas >= 75:
+            st.success("✅ 75 yaş ve üzeri hastalarda KMY (T-Skoru) ölçümü şartı aranmaz. Yaş kriterinden ödenir.")
+        elif osteo_kirik == "Var" and osteo_t_skor > -1.0:
+            st.error(f"🚨 SUT KESİNTİ RİSKİ: Patolojik kırığı olanlarda T-Skoru en az -1.0 olmalıdır (Girilen: {osteo_t_skor}). Ödenmez!")
+            st.stop()
+        elif osteo_yas >= 65 and osteo_kirik == "Yok" and osteo_t_skor > -2.5:
+            st.error(f"🚨 SUT KESİNTİ RİSKİ: 65 yaş ve üzeri (kırık yok) hastalarda T-Skoru en az -2.5 olmalıdır (Girilen: {osteo_t_skor}). Ödenmez!")
+            st.stop()
+        elif osteo_yas < 65 and osteo_kirik == "Yok" and osteo_t_skor > -3.0:
+            st.error(f"🚨 SUT KESİNTİ RİSKİ: 65 yaş altı (kırık yok) hastalarda T-Skoru en az -3.0 olmalıdır (Girilen: {osteo_t_skor}). Ödenmez!")
+            st.stop()
+    # ----------------------------------------------------
     raporsuz = bool(rec_var and rapor_yok)
     rapor = Rapor(
             no="",  # <-- r_no yerine 
@@ -338,6 +372,7 @@ if st.button("Kontrol et", type="primary", use_container_width=True, disabled=no
         ldl_tarihi_2=None if raporsuz else r_ldl_tarihi_2,
         risk_faktorleri=[] if raporsuz else r_risk,
         t_skoru=r_t_skoru,
+        hasta_yasi=r_yas,
     )
     recete = (
         Recete(
