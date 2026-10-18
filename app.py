@@ -13,6 +13,7 @@ st.set_page_config(page_title="SUTCheck", page_icon="✅", layout="centered")
 # Şık ve modern ana başlık
 st.markdown("<h1 style='text-align: center; color: #003c71;'>✅ SUTCheck</h1>", unsafe_allow_html=True)
 st.markdown("<p style='text-align: center; color: gray;'>Yapay Zeka Destekli Reçete ve Rapor Analizi</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: #e91e63; font-weight: 500;'>❤️ Bu yazılım Dilan'ın en büyük destekçisi Mekan tarafından kalplere işlendi...</p>", unsafe_allow_html=True)
 st.divider()
 
 from sut import gorsel, ilac, katalog, motor
