@@ -7,8 +7,8 @@ from datetime import date
 from pathlib import Path
 
 import streamlit as st
-# Sayfa sekmesi ve genişlik ayarı (Bu satır tüm st. kodlarından önce olmalı!)
-st.set_page_config(page_title="SUTCheck", page_icon="✅", layout="centered")
+# Sayfa yapılandırması tüm Streamlit çağrılarından önce ve yalnızca bir kez yapılmalı.
+st.set_page_config(page_title="SUT Kontrol", page_icon="✓", layout="wide")
 
 # Şık ve modern ana başlık
 st.markdown("<h1 style='text-align: center; color: #003c71;'>✅ SUTCheck</h1>", unsafe_allow_html=True)
@@ -29,8 +29,6 @@ KURAL_YOLLARI = [
 
 RENK = {"HATA": "#A32D2D", "UYARI": "#854F0B", "BILGI": "#0F6E56"}
 ETIKET = {"HATA": "HATA", "UYARI": "UYARI", "BILGI": "BİLGİ"}
-
-st.set_page_config(page_title="SUT Kontrol", page_icon="✓", layout="wide")
 
 @st.cache_resource
 def kural_setleri():
@@ -153,6 +151,14 @@ with sol:
                         if ham.get("ldl_degeri"):
                             en_guncel_ldl = ham.get("ldl_degeri")
                             en_guncel_tarih = ham.get("tarih")
+                        if ham.get("ldl_2_degeri"):
+                          st.session_state["r_ldl_2_alan"] = ham.get("ldl_2_degeri")
+                        if ham.get("idame_tedavisi") is not None:
+                          st.session_state["r_idame"] = ham.get("idame_tedavisi")
+                        if ham.get("alti_ay_ara") is not None:
+                          st.session_state["r_6_ay_ara"] = ham.get("alti_ay_ara")
+                        if ham.get("risk_faktorleri"):
+                          st.session_state["r_risk"] = ham.get("risk_faktorleri")
                         if ham.get("duzenleme_tarihi"):
                             st.session_state["r_bas_alan"] = tarih_coz(ham.get("duzenleme_tarihi"))
                         if ham.get("bitis_tarihi"):
@@ -200,20 +206,9 @@ with sol:
 
     # --- DİNAMİK ARAYÜZ ---
     aktif_ilaclar = (st.session_state.get("r_ilaclar_alan", "") + " " + st.session_state.get("rec_ilaclar_alan", "")).lower()
-    
-    r_t_skoru = None
-    r_yas = None
-    osteo_ilaclar = ["alendronat", "risedronat", "ibandronik", "zoledronik", "denosumab", "fosamax", "actonel", "bonviva", "aclasta", "prolia"]
-    
-    if any(ilac in aktif_ilaclar for ilac in osteo_ilaclar):
-        with st.container(border=True):
-            st.info("🦴 Osteoporoz Rapor Bilgileri:")
-            col_o1, col_o2 = st.columns(2)
-            with col_o1:
-                r_yas = st.number_input("👤 Hasta Yaşı:", min_value=1, max_value=120, value=65, step=1, key="r_yas_dinamik")
-            with col_o2:
-                r_t_skoru = st.number_input("📉 DEXA T-Skoru:", value=None, format="%.2f", key="r_t_skoru_dinamik")
 
+    r_t_skoru = None
+    r_yas = 65
     r_idame = False
     r_6_ay_ara = False
     r_ldl = None
@@ -221,9 +216,29 @@ with sol:
     r_ldl_2 = None
     r_ldl_tarihi_2 = None
     r_risk = []
-    
+    osteo_ilaclar = ["alendronat", "risedronat", "ibandronik", "zoledronik", "denosumab", "fosamax", "actonel", "bonviva", "aclasta", "prolia"]
+
+    if any(ad in aktif_ilaclar for ad in osteo_ilaclar):
+        col_sol, _col_sag = st.columns([1.1, 0.9])
+        with col_sol:
+            with st.container(border=True):
+                st.info("🦴 Osteoporoz Rapor Bilgileri:")
+                col_o1, col_o2 = st.columns(2)
+                with col_o1:
+                    r_yas = st.number_input(
+                        "👤 Hasta Yaşı:", min_value=1, max_value=120,
+                        value=65, step=1, key="r_yas_dinamik",
+                    )
+                with col_o2:
+                    r_t_skoru_ham = st.number_input(
+                        "T-Skoru (-)", value=2.5, min_value=0.0,
+                        max_value=6.0, step=0.1, format="%.1f",
+                        key="r_t_skoru_dinamik",
+                    )
+                    r_t_skoru = -abs(r_t_skoru_ham) if r_t_skoru_ham is not None else None
+
     statin_ilaclar = ["statin", "atorvastatin", "rosuvastatin", "pitavastatin", "pravastatin", "simvastatin", "fluvastatin", "lipitor", "crestor", "zocor", "kolestor"]
-    
+
     if any(ilac in aktif_ilaclar for ilac in statin_ilaclar):
         with st.expander("🩸 Statin / LDL Tahlil Bilgileri", expanded=True):
             r_idame = st.checkbox("İdame (Yenileme) Raporu", key="r_idame")
@@ -232,10 +247,10 @@ with sol:
             c1, c2 = st.columns(2)
             r_ldl = c1.number_input("Güncel / 1. LDL", value=None, format="%f", key="r_ldl_alan")
             r_ldl_tarihi = c2.date_input("1. LDL Tarihi", value=None, key="r_ldl_tarihi_alan")
-            
+
             c3, c4 = st.columns(2)
             r_ldl_2 = c3.number_input("Eski / 2. LDL (Gerekliyse)", value=None, format="%f", key="r_ldl_2_alan")
-            r_ldl_tarihi_2 = c4.date_input("2. LDL Tarihi", value=None, key="r_ldl_tarihi_2_alan")                     
+            r_ldl_tarihi_2 = c4.date_input("2. LDL Tarihi", value=None, key="r_ldl_tarihi_2_alan")
             r_risk = st.multiselect(
                 "Ek Risk Faktörleri ve Yüksek Riskli Hastalıklar",
                 options=[
@@ -369,11 +384,14 @@ if kontrol_basildi:
     if not ks_listesi:
         st.error("Hiçbir kural dosyası yüklenemedi. 'kurallar' klasörünü kontrol edin.")
         st.stop()
-     # --- KESİN SUT KURALLARI (Yapay Zekadan Bağımsız) ---
+
+    raporsuz = bool(rec_var and rapor_yok)
+
+    # --- KESİN SUT KURALLARI (Yapay Zekadan Bağımsız) ---
     hekim_bransi = rec_brans.replace('İ', 'i').replace('I', 'ı').lower() if rec_brans else ""
-    
+
     # 1. ARB Kuralı
-    if arb_var and rec_kutu > 1 and "aile hekim" in hekim_bransi:
+    if raporsuz and arb_var and rec_kutu > 1 and "aile hekim" in hekim_bransi:
         st.error("🚨 SUT KESİNTİ RİSKİ: Aile Hekimleri raporsuz durumlarda ARB grubu ilaçları en fazla 1 aylık tedavi dozunda yazabilir. Fazlası ödenmez!")
         st.stop()
 
@@ -390,28 +408,28 @@ if kontrol_basildi:
         elif osteo_yas < 65 and osteo_kirik == "Yok" and osteo_t_skor > -3.0:
             st.error(f"🚨 SUT KESİNTİ RİSKİ: 65 yaş altı (kırık yok) hastalarda T-Skoru en az -3.0 olmalıdır (Girilen: {osteo_t_skor}). Ödenmez!")
             st.stop()
-    # ----------------------------------------------------
-    raporsuz = bool(rec_var and rapor_yok)
+
     rapor = Rapor(
-            no="",  # <-- r_no yerine 
-            duzenleme_tarihi=r_bas,
+        rapor_no=st.session_state.get("r_no") or None,
+        duzenleme_tarihi=r_bas,
         bitis_tarihi=None if raporsuz else r_bit,
         tani_kodlari=virgullu_liste(r_tani),
         hekim_branslari=virgullu_liste(r_brans),
         ilaclar=[] if raporsuz else ilac_listesi(r_ilaclar),
         serbest_metin="" if raporsuz else r_metin,
         idame_mi=False if (raporsuz or r_6_ay_ara) else r_idame,
-        ldl_degeri=None if raporsuz else (float(r_ldl) if r_ldl is not None else None),
+        ldl_degeri=None if raporsuz else r_ldl,
         ldl_tarihi=None if raporsuz else r_ldl_tarihi,
-        ldl_degeri_2=None if raporsuz else (float(r_ldl_2) if r_ldl_2 is not None else None),
+        ldl_degeri_2=None if raporsuz else r_ldl_2,
         ldl_tarihi_2=None if raporsuz else r_ldl_tarihi_2,
         risk_faktorleri=[] if raporsuz else r_risk,
         t_skoru=r_t_skoru,
         hasta_yasi=r_yas,
     )
+
     recete = (
         Recete(
-            recete_no="",
+            recete_no=st.session_state.get("rec_no") or None,
             tarih=rec_tarih,
             hekim_bransi=rec_brans or None,
             ilaclar=ilac_listesi(rec_ilaclar),
@@ -459,19 +477,36 @@ if kontrol_basildi:
             "çalışmadı: " + ", ".join(tanimsiz)
         )
 
+
     for b in sonuc.bulgular:
-        renk = RENK[b.seviye]
-        with st.container(border=True):
-            st.markdown(
-                f"<span style='color:{renk};font-weight:500'>{ETIKET[b.seviye]}</span> "
-                f"&nbsp;·&nbsp; **{b.baslik}**",
-                unsafe_allow_html=True,
-            )
-            st.write(b.mesaj)
-            ayrinti = []
-            if b.sut_madde:
-                ayrinti.append(f"SUT: {b.sut_madde}")
-            if b.kanit:
-                ayrinti.append(b.kanit)
-            ayrinti.append(f"kural: {b.kural_id}")
-            st.caption(" · ".join(ayrinti))
+        # Seviyeye göre kurumsal ve şık renkler ile pastel arka planlar
+        if b.seviye == "HATA":
+            renk = "#d32f2f"      # Canlı Kırmızı
+            bg_renk = "#fde8e8"   # Hafif kırmızı arkaplan
+        elif b.seviye == "UYARI":
+            renk = "#f57c00"      # Turuncu / Kehribar
+            bg_renk = "#fff4e5"   # Hafif sarı/turuncu arkaplan
+        else:
+            renk = "#003c71"      # Ege Mavisi (Bilgi için)
+            bg_renk = "#eef4f9"   # Hafif mavi arkaplan
+
+        st.markdown(
+            f"""
+            <div style="
+                padding: 15px; 
+                border-radius: 8px; 
+                background-color: {bg_renk}; 
+                border-left: 5px solid {renk}; 
+                margin-bottom: 10px;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            ">
+                <span style="color: {renk}; font-weight: 700; font-size: 15px;">
+                    {b.seviye} &nbsp;·&nbsp; {b.baslik}
+                </span>
+                <p style="color: #1e2329; margin-top: 8px; margin-bottom: 0; font-size: 14px;">
+                    {b.mesaj}
+                </p>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )

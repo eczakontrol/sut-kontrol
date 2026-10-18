@@ -107,6 +107,10 @@ MARKALAR: dict[str, str] = {
     "coraspin": "asetilsalisilik asit", "ecopirin": "asetilsalisilik asit", "aspirin": "asetilsalisilik asit",
     "coralan": "ivabradin",
     "eliquis": "apiksaban", "xarelto": "rivaroksaban", "pradaxa": "dabigatran", "lixiana": "edoksaban",
+    # --- Statinler ---
+    "ator": "atorvastatin", "alvastin": "atorvastatin", "lipitor": "atorvastatin", "atorvio": "atorvastatin",
+    "crestor": "rosuvastatin", "rovu": "rosuvastatin", "rosucard": "rosuvastatin",
+    "zocor": "simvastatin", "Lescol": "fluvastatin", "tarden": "atorvastatin"
     # --- Osteoporoz ---
     "fosamax": "alendronat", "actonel": "risedronat", "bonviva": "ibandronik asit", "aclasta": "zoledronik asit",
     "prolia": "denosumab",

@@ -1,0 +1,25 @@
+# ==========================================
+# 1. SEÇENEK: EGE ÜNİVERSİTESİ TEMASI (AYDINLIK)
+# (Şu an aktif olan tema - Yazılar simsiyah, arka plan göz yormayan uçuk gri/mavi)
+# ==========================================
+[theme]
+base="light"
+primaryColor="#003c71"
+backgroundColor="#f0f4f8"
+secondaryBackgroundColor="#ffffff"
+textColor="#000000"
+font="sans serif"
+
+
+# ==========================================
+# 2. SEÇENEK: GECE NÖBETİ TEMASI (KOYU / NANE YEŞİLİ)
+# (Kullanmak istersen üstteki [theme] bloğunun her satırının başına # koy,
+# aşağıdaki satırların başındaki # işaretlerini sil)
+# ==========================================
+# [theme]
+# base="dark"
+# primaryColor="#00d4b2"
+# backgroundColor="#0e1117"
+# secondaryBackgroundColor="#1a1c24"
+# textColor="#ffffff"
+# font="sans serif"

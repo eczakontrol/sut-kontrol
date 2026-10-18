@@ -41,14 +41,17 @@ görünmeyen her alana null yaz. ASLA TAHMİN ETME, ASLA UYDURMA.
   "rapor_no": string veya null,
   "duzenleme_tarihi": raporun düzenlenme/başlangıç tarihi, "YYYY-MM-DD" formatında string veya null,
   "bitis_tarihi": raporun bitiş/geçerlilik süresi sonu, "YYYY-MM-DD" formatında string veya null,
-  "rapor_tipi": string veya null (örnek: "uzman hekim raporu", "sağlık kurulu raporu"),
+  "rapor_tipi": string veya null,
   "tani_kodlari": ICD-10 kodlarının listesi, örnek ["I10"], yoksa boş liste [],
-  "hekim_branslari": rapordaki hekim branşlarının listesi (örneğin ["Kardiyoloji", "İç Hastalıkları"]), yoksa boş liste [],
+  "hekim_branslari": rapordaki hekim branşlarının listesi, yoksa boş liste [],
   "ilaclar": [{"ad": string, "adet": sayı veya null}, ...], yoksa boş liste [],
   "serbest_metin": raporun tüm serbest metin / açıklama / not alanlarının BİREBİR kopyası,
   "ldl_degeri": raporda yazan ilk/en güncel LDL kolesterol değeri (sayı) veya null,
+  "ldl_2_degeri": raporda önceki/ikinci bir LDL değeri varsa (sayı) veya null,
   "tarih": LDL veya tahlil tarihi ("YYYY-MM-DD" formatında) veya null,
-  "risk_faktorleri": Raporda hastanın tanılarında veya serbest metninde aşağıdaki risk faktörlerinden biri veya birkaçı geçiyorsa, KESİNLİKLE AŞAĞIDAKİ YAZIM ŞEKLİYLE BİREBİR AYNI OLACAK ŞEKİLDE listeye ekle. (Eğer geçmiyorsa veya emin değilsen boş liste [] döndür):
+  "idame_tedavisi": true veya false (Raporda idame, devam tedavisi veya daha önceden statin kullandığına dair ibare varsa true),
+  "alti_ay_ara": true veya false (Raporda 6 ay ara, ara verilmiştir vb. ibare geçiyorsa true),
+  "risk_faktorleri": Raporda hastanın tanılarında veya serbest metninde aşağıdaki risk faktörlerinden biri veya birkaçı geçiyorsa, KESİNLİKLE AŞAĞIDAKİ YAZIM ŞEKLİYLE BİREBİR AYNI OLACAK ŞEKİLDE listeye ekle (yoksa boş liste []):
     - "Diyabet (Diabetes Mellitus)"
     - "Hipertansiyon"
     - "Geçirilmiş MI / Akut Koroner Sendrom"
@@ -61,8 +64,7 @@ görünmeyen her alana null yaz. ASLA TAHMİN ETME, ASLA UYDURMA.
     - "65 yaş ve üzeri"
 }
 
-SADECE bu JSON'u döndür. Başka hiçbir açıklama, markdown işareti
-veya yorum ekleme.
+SADECE bu JSON'u döndür. Başka hiçbir açıklama veya markdown ekleme.
 """
 
 _PROMPT = _RAPOR_PROMPT  # eski isim, geriye dönük uyum
