@@ -1,34 +1,38 @@
-surum: "2026-10-13c"
+surum: "2026-10-19b"
 kaynak: "SUT - Kardiyoloji ve NOAK Kuralları"
 
 ayarlar:
   receteyi_de_degerlendir: true
 
 kurallar:
-  # KLOPİDOGREL (PLAVIX) + ASA (ASPİRİN) ÇELİŞKİ KURALI
+  # 1. RAPORDA ASA İNTOLERANSI VARKEN ASA (CORASPİN / ECOPİRİN / KLOGEL-A) ÖDENMEZ KURALI
   - id: KLOPIDOGREL_ASA_CELISKI
     tip: yasakli_ibare_kontrolu
-    baslik: "Klopidogrel + Aspirin (ASA) ÇELİŞKİSİ!"
-    sut_madde: "SUT 4.2.15.C"
+    kapsam: tumu
+    baslik: "KESİNTİ RİSKİ: ASA İntoleransı Varken Aspirin / Klogel-A Ödenmez!"
+    sut_madde: "SUT 4.2.15.A"
     seviye: HATA
     tetikleyici:
-      hepsi_bulunmali: [KLOPIDOGREL, ASA]
+      hepsi_bulunmali: [ASA]
     yasakli_kaliplar:
-      - "asa intoleransı"
-      - "asa intoleransi"
-      - "asetilsalisilik asit intoleransı"
-      - "asa duyarlılığı"
-      - "gis kanaması"
-      - "mide kanaması"
-      - "aspirin alerjisi"
+      - "asa intolerans"
+      - "asa'ya karsi gis intolerans"
+      - "asa'ya karşı gis intolerans"
+      - "asetilsalisilik asit intolerans"
+      - "aspirin intolerans"
+      - "gis intolerans"
+      - "asa duyarlilik"
+      - "gis kanama"
+      - "mide kanama"
+      - "aspirin alerji"
     mesaj: >-
-      Reçetede Klopidogrel ve Aspirin (ASA) BİRLİKTE yer alıyor, ANCAK raporun açıklama kısmında Aspirin intoleransı veya kanama öyküsü belirtilmiş! Aspirin reçeteden çıkarılmalı veya ücretli verilmelidir.
+      Rapor açıklamasında ASA'ya (Aspirin) karşı GİS intoleransı veya kanama öyküsü belirtilmiş! Bu hastaya Coraspin, Ecopirin, Aspirin veya içeriğinde ASA bulunan kombine ürünler (örn. Klogel-A) SGK kapsamında KESİNLİKLE VERİLEMEZ; reçeteden çıkarılmalı veya ücretli olarak karşılanmalıdır.
 
-  # KLOPİDOGREL ZEKİ İBARE KONTROLÜ
+  # 2. KLOPİDOGREL ZORUNLU RAPOR İBARELERİ (Sadece ICD-10 Yetmez!)
   - id: KLOPIDOGREL_ZORUNLU_IBARE
     tip: aranan_ibare_kontrolu
-    sut_madde: "SUT 4.2.15.C"
-    seviye: UYARI
+    sut_madde: "SUT 4.2.15.A"
+    seviye: HATA
     tetikleyici:
       hepsi_bulunmali: [KLOPIDOGREL]
     aranan_kaliplar:
@@ -37,32 +41,83 @@ kurallar:
       - "anjiyografi"
       - "anjiografi"
       - "angiografi"
+      - "anjiografik"
+      - "kag"
       - "stent"
       - "koroner bypass"
+      - "by-pass"
+      - "bypass"
       - "cabg"
       - "biyoprotez"
-      - "anjiografik"
+      - "kalp kapak"
       - "iskemik inme"
+      - "tikayici periferik"
       - "tıkayıcı periferik"
+      - "periferik arter"
       - "akut koroner"
       - "aks"
       - "nstemi"
       - "stemi"
-      - "asa intolerans"
-      - "gis intol"
-      - "gis kanama"
-      - "mide kanama"
-    baslik_yok: "Klopidogrel Zorunlu İbare Eksik (Manuel Kontrol)"
+    baslik_yok: "Klopidogrel Zorunlu Rapor İbaresi Eksik!"
     mesaj_yok: >-
-      Raporda stent, anjiyografi, CABG, iskemik inme, tıkayıcı periferik arter veya AKS gibi Klopidogrel ödemesine esas teşkil eden spesifik bir ibare tespit edilemedi. Lütfen rapor açıklamasını gözle kontrol edin.
-    baslik_var: "Klopidogrel Şartları Sağlandı"
+      Klopidogrel raporlarında sadece ICD-10 kodu yeterli değildir! Rapor açıklamasında; 'Anjiografik olarak belgelenmiş koroner arter hastalığı (stent, CABG/bypass veya KAG/anjiyo bilgisi)', 'Kalp kapak biyoprotezi bulunan', 'İskemik inme', 'Tıkayıcı periferik arter hastalığı' veya 'Akut Koroner Sendrom (AKS, NSTEMI, STEMI)' ibarelerinden en az biri açıkça yazmalıdır.
+    baslik_var: "Klopidogrel Zorunlu İbare Mevcut"
     mesaj_var: >-
-      Raporda Klopidogrel kullanımı için geçerli bir tıbbi ibare/teşhis bulundu.
+      Raporda Klopidogrel ödemesi için zorunlu olan spesifik tıbbi ibare tespit edildi. (KAH raporlarında raporla aynı gün veya öncesine ait KAG/anjiyo/stent tarihinin bulunduğunu kontrol ediniz).
 
-  # İVABRADİN ZEKİ İBARE KONTROLÜ
+  # 3. KLOPİDOGREL RAPOR SÜRESİ KONTROLÜ (MAKSİMUM 12 AY)
+  - id: KLOPIDOGREL_RAPOR_SURESI
+    tip: rapor_suresi_kontrolu
+    sut_madde: "SUT 4.2.15.A"
+    seviye: HATA
+    azami_gun: 366
+    tetikleyici:
+      hepsi_bulunmali: [KLOPIDOGREL]
+    baslik: "Klopidogrel Rapor Süresi 12 Ayı Aşıyor!"
+    mesaj: >-
+      Klopidogrel raporları uzman hekimler tarafından en fazla 12 ay (1 yıl) süreyle çıkarılabilir. Rapor başlangıç ve bitiş tarihlerini kontrol ediniz.
+
+  # 4. KLOPİDOGREL HEKİM BRANŞ KONTROLÜ
+  - id: KLOPIDOGREL_BRANS
+    tip: brans_kontrolu
+    baslik: "Klopidogrel Hekim Branş Kontrolü"
+    sut_madde: "SUT 4.2.15.A"
+    seviye: HATA
+    tetikleyici:
+      hepsi_bulunmali: [KLOPIDOGREL]
+    izinli_branslar:
+      - "kardiyoloji"
+      - "kalp ve damar"
+      - "kalp damar"
+      - "iç hastalıkları"
+      - "dahiliye"
+      - "nöroloji"
+      - "acil tıp"
+      - "aile hekim"
+    mesaj_yok: >-
+      Klopidogrel raporu/reçetesi yalnızca Kardiyoloji, Kalp Damar Cerrahisi, İç Hastalıkları, Nöroloji, Acil Tıp veya (ilk 2 rapor / 24 ay sonunda) Aile Hekimliği uzmanlarınca düzenlenebilir.
+    mesaj_brans_yok: >-
+      Klopidogrel için uzman hekim branşı gereklidir.
+
+  # 5. KLOPİDOGREL AİLE HEKİMLİĞİ UZMANI 24 AY UYARISI
+  - id: KLOPIDOGREL_AILE_HEKIMI_UYARI
+    tip: aile_hekimi_rapor_uyarisi
+    sut_madde: "SUT 4.2.15.A"
+    tetikleyici:
+      hepsi_bulunmali: [KLOPIDOGREL]
+    baslik: "Aile Hekimi Raporu: 24 Ay (İlk 2 Rapor) Şartı Kontrolü"
+    mesaj: >-
+      Klopidogrel raporları Aile Hekimliği uzman hekimlerince yalnızca ilk iki rapor süresi sonunda (toplam 24 ay kullanım tamamlandıktan sonra) en fazla 12 ay süreyle çıkarılabilir. Medula'dan hastanın geçmiş rapor süresini kontrol ediniz.
+
+  # 6. KLOPİDOGREL RAPORSUZ KULLANIM KONTROLÜ (1 KUTU / 4 HAFTA)
+  - id: KLOPIDOGREL_RAPORSUZ
+    tip: raporsuz_klopidogrel_kontrolu
+    sut_madde: "SUT 4.2.15.A"
+
+  # 7. İVABRADİN (CORALAN) ZEKİ İBARE KONTROLÜ
   - id: IVABRADIN_KURALI
     tip: aranan_ibare_kontrolu
-    sut_madde: "SUT"
+    sut_madde: "SUT 4.2.15.B"
     seviye: UYARI
     tetikleyici:
       hepsi_bulunmali: [IVABRADIN]
@@ -72,39 +127,32 @@ kurallar:
       - "verapamil"
       - "diltiazem"
       - "kalp hızı"
+      - "sinüs ritm"
+      - "ef <"
+      - "ef %"
+      - "ejeksiyon"
     baslik_yok: "İvabradin (Coralan) Şartları Eksik"
     mesaj_yok: >-
-      İvabradin ödemesi için raporda "Beta bloker intoleransı", "kalp hızı > 75" veya "verapamil/diltiazem kontrendikasyonu" gibi spesifik ibareler bulunmalıdır.
+      İvabradin ödemesi için raporda; Angina Pektoris'te 'Normal sinüs ritmi ve Beta blokör ve/veya verapamil-diltiazem intoleransı/kontrendikasyonu', Kalp Yetmezliği'nde ise 'EF < %45, Sınıf II-IV, kalp hızı >= 75/dk ve beta blokör şartı (yüksek seyreden / kontrendikasyon / intolerans)' belirtilmelidir.
     baslik_var: "İvabradin Şartları Sağlandı"
     mesaj_var: >-
-      Raporda İvabradin ödemesi için gerekli beta bloker veya kalp hızı ibareleri tespit edildi.
+      Raporda İvabradin ödemesi için gerekli beta blokör, kalp hızı (>= 75/dk) veya EF (< %45) ibareleri tespit edildi.
 
-  # NOAK KOMBİNASYON YASAĞI
+  # 8. NOAK KOMBİNASYON YASAĞI
   - id: NOAK_KOMBINE_YASAK
     tip: tekil_sinif_kontrolu
     sinif: NOAK
     azami_urun: 1
-    baslik: "NOAK İlaçları Birlikte Kullanılmaz"
-    sut_madde: "SUT"
+    baslik: "KESİNTİ RİSKİ: NOAK İlaçları Birlikte Kullanılamaz!"
+    sut_madde: "SUT 4.2.15.D"
     seviye: HATA
     mesaj: >-
-      Yeni nesil kan sulandırıcılar (NOAK) BİRLİKTE kombine edilemez.
+      Yeni nesil oral antikoagülanlar (Eliquis, Xarelto, Pradaxa, Lixiana) BİRLİKTE kombine edilemez, bedelleri karşılanmaz!
 
-  # NOAK ZEKİ İBARE KONTROLÜ
-  - id: NOAK_VARFARIN_SARTI
-    tip: aranan_ibare_kontrolu
-    sut_madde: "SUT"
-    seviye: UYARI
+  # 9. NOAK DETAYLI SUT REHBERİ KONTROLÜ (VARFARİN 2 AY + 5 ÖLÇÜMDE 3 INR, NVAF RİSKLERİ, KAPAK ŞARTI, DVT/PE)
+  - id: NOAK_DETAYLI_KONTROL
+    tip: noak_kontrolu
+    sut_madde: "SUT 4.2.15.D"
     tetikleyici:
       herhangi_bulunmali: [NOAK]
-    aranan_kaliplar:
-      - "varfarin"
-      - "coumadin"
-      - "inr"
-    baslik_yok: "NOAK Varfarin Kullanım Şartı Eksik"
-    mesaj_yok: >-
-      NOAK'ların ödenmesi için raporda "En az 2 ay süre ile varfarin kullanıldığı ve hedeflenen INR'ye ulaşılamadığı" yazmalıdır. Bu ibare bulunamadı.
-    baslik_var: "Varfarin Kullanım İbaresi Mevcut"
-    mesaj_var: >-
-      Raporda Varfarin (Coumadin) / INR kullanıldığına dair ibare tespit edildi.
       

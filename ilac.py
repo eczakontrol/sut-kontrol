@@ -90,6 +90,7 @@ ES_ADLAR: dict[str, str] = {
     "captopril": "kaptopril", "cilazapril": "silazapril", "quinapril": "kinapril", "candesartan": "kandesartan",
     "carvedilol": "karvedilol", "sacubitril": "sakubitril", "lercanidipin": "lerkanidipin", "nicardipin": "nikardipin",
     "indapamit": "indapamid", "exenatide": "eksenatid",
+    "asetilsalisilik": "asetilsalisilik asit", "aspirin": "asetilsalisilik asit",
 }
 
 MARKALAR: dict[str, str] = {
@@ -103,14 +104,17 @@ MARKALAR: dict[str, str] = {
     "humalog": "insulin lispro", "novorapid": "insulin aspart", "apidra": "insulin glulisin", "novomix": "insulin aspart",
     "lantus": "insulin glargine", "glarin": "insulin glargine", "basaglar": "insulin glargine", "levemir": "insulin detemir", "tresiba": "insulin degludec", "toujeo": "insulin glargine", "ryzodeg": "insulin degludec insulin aspart",
     # --- Kardiyoloji ve Kan Sulandırıcılar ---
+    "klogel-a": "klopidogrel asetilsalisilik asit",
+    "klogel a": "klopidogrel asetilsalisilik asit",
     "plavix": "klopidogrel", "karum": "klopidogrel", "pingel": "klopidogrel", "planor": "klopidogrel",
-    "coraspin": "asetilsalisilik asit", "ecopirin": "asetilsalisilik asit", "aspirin": "asetilsalisilik asit",
-    "coralan": "ivabradin",
+    "klogel": "klopidogrel", "clopra": "klopidogrel", "diloxol": "klopidogrel", "atervix": "klopidogrel", "opgrel": "klopidogrel", "baclan": "klopidogrel",
+    "coraspin": "asetilsalisilik asit", "ecopirin": "asetilsalisilik asit", "aspirin": "asetilsalisilik asit", "babyprin": "asetilsalisilik asit",
+    "coralan": "ivabradin", "ivabran": "ivabradin",
     "eliquis": "apiksaban", "xarelto": "rivaroksaban", "pradaxa": "dabigatran", "lixiana": "edoksaban",
     # --- Statinler ---
-    "ator": "atorvastatin", "alvastin": "atorvastatin", "lipitor": "atorvastatin", "atorvio": "atorvastatin",
-    "crestor": "rosuvastatin", "rovu": "rosuvastatin", "rosucard": "rosuvastatin",
-    "zocor": "simvastatin", "Lescol": "fluvastatin", "tarden": "atorvastatin"
+    "ator": "atorvastatin", "alvastin": "atorvastatin", "lipitor": "atorvastatin", "atorvio": "atorvastatin", "tarden": "atorvastatin", "divator": "atorvastatin", "cholvast": "atorvastatin", "kolestor": "atorvastatin",
+    "crestor": "rosuvastatin", "rovu": "rosuvastatin", "rosucard": "rosuvastatin", "roselip": "rosuvastatin", "rosuvas": "rosuvastatin", "lipovas": "rosuvastatin",
+    "zocor": "simvastatin", "lescol": "fluvastatin", "pravachol": "pravastatin", "livalo": "pitavastatin", "alipza": "pitavastatin",
     # --- Osteoporoz ---
     "fosamax": "alendronat", "actonel": "risedronat", "bonviva": "ibandronik asit", "aclasta": "zoledronik asit",
     "prolia": "denosumab",
@@ -133,12 +137,14 @@ for _es, _asil in ES_ADLAR.items():
     _DERLENMIS.append((_asil, ETKEN_MADDELER[_asil], _desen_derle(_es)))
 
 def maddeleri_bul(metin: str) -> dict[str, str]:
-    norm = normalize(metin)
+    # Tire işaretini boşluğa çevirerek klogel-a -> klogel a eşleşmesini garantiye alalım
+    norm = normalize(metin.replace("-", " "))
     bulunan: dict[str, str] = {}
     if not norm:
         return bulunan
     for marka, icerik in MARKALAR.items():
-        if re.search(rf"\b{re.escape(normalize(marka))}\b", norm):
+        marka_norm = normalize(marka.replace("-", " "))
+        if re.search(rf"\b{re.escape(marka_norm)}\b", norm):
             norm += " " + normalize(icerik)
     for barkod in katalog.barkodlari_bul(metin):
         kayit = katalog.bul(barkod)

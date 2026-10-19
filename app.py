@@ -174,7 +174,7 @@ with sol:
                         st.session_state["r_ldl_alan"] = float(en_guncel_ldl)
                         
                     st.session_state["r_hastaliklar_alan"] = list(set(tum_hastaliklar)) 
-                    st.session_state["r_tanilar_alan"] = ", ".join(list(set(tum_tanilar)))
+                    st.session_state["r_tani_alan"] = ", ".join(list(set(tum_tanilar)))
                     st.session_state["r_ilaclar_alan"] = "\n".join(list(set(tum_ilaclar)))
                     st.session_state["r_metin_alan"] = tum_metin.strip()
                     st.session_state["rapor_foto_okundu"] = True
