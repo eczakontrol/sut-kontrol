@@ -138,21 +138,32 @@ kurallar:
     mesaj_var: >-
       Raporda İvabradin ödemesi için gerekli beta blokör, kalp hızı (>= 75/dk) veya EF (< %45) ibareleri tespit edildi.
 
-  # 8. NOAK KOMBİNASYON YASAĞI
+# 8. NOAK KOMBİNASYON YASAĞI
   - id: NOAK_KOMBINE_YASAK
     tip: tekil_sinif_kontrolu
     sinif: NOAK
     azami_urun: 1
     baslik: "KESİNTİ RİSKİ: NOAK İlaçları Birlikte Kullanılamaz!"
-    sut_madde: "SUT 4.2.15.D"
+    sut_madde: "SUT 4.2.15.D-1"
     seviye: HATA
     mesaj: >-
-      Yeni nesil oral antikoagülanlar (Eliquis, Xarelto, Pradaxa, Lixiana) BİRLİKTE kombine edilemez, bedelleri karşılanmaz!
+      Dabigatran, Rivaroksaban, Edoksaban ve Apiksaban etken maddeli ilaçların kombine olarak kullanılması halinde bedelleri Kurumca karşılanmaz!
 
-  # 9. NOAK DETAYLI SUT REHBERİ KONTROLÜ (VARFARİN 2 AY + 5 ÖLÇÜMDE 3 INR, NVAF RİSKLERİ, KAPAK ŞARTI, DVT/PE)
-  - id: NOAK_DETAYLI_KONTROL
-    tip: noak_kontrolu
-    sut_madde: "SUT 4.2.15.D"
+  # 9. NOAK RAPOR SÜRESİ KONTROLÜ (MAKSİMUM 1 YIL / 12 AY)
+  - id: NOAK_RAPOR_SURESI
+    tip: rapor_suresi_kontrolu
+    sut_madde: "SUT 4.2.15.D-1"
+    seviye: HATA
+    azami_gun: 366
     tetikleyici:
       herhangi_bulunmali: [NOAK]
-      
+    baslik: "KESİNTİ RİSKİ: NOAK Rapor Süresi 1 Yılı Aşıyor!"
+    mesaj: >-
+      NOAK raporları en fazla 1 yıl (12 ay) süreli olarak düzenlenebilir. Rapor başlangıç ve bitiş tarihlerini kontrol ediniz.
+
+  # 10. NOAK 7 MADDELİK TAM SUT CHECKLIST KONTROLÜ
+  - id: NOAK_DETAYLI_KONTROL
+    tip: noak_kontrolu
+    sut_madde: "SUT 4.2.15.D-1"
+    tetikleyici:
+      herhangi_bulunmali: [NOAK]

@@ -535,74 +535,273 @@ def _aile_hekimi_rapor_uyarisi(kural: dict, rapor: Rapor, recete: Recete | None,
 
 
 def _noak_kurali(kural: dict, rapor: Rapor, recete: Recete | None, havuz: list[Ilac]) -> list[Bulgu]:
-    tetikleyen = [e for e, s in _gruplar(havuz, "urun") if _tetiklendi_mi(kural.get("tetikleyici", {}), s)]
+    """NOAK (Apiksaban, Rivaroksaban, Dabigatran, Edoksaban) 8 Maddelik Tam SUT Kontrol Listesi."""
+    tetikleyici = kural.get("tetikleyici", {})
+    gruplar = _gruplar(havuz, "urun")
+    tetikleyen = [e for e, s in gruplar if _tetiklendi_mi(tetikleyici, s)]
     if not tetikleyen:
         return []
-    etiket = ", ".join(tetikleyen)
-    sut = kural.get("sut_madde", "SUT 4.2.15.D")
 
+    etiket = ", ".join(tetikleyen)
+    sut = kural.get("sut_madde", "SUT 4.2.15.D-1")
+
+    # Raporsuz NOAK kesinlikle ödenmez
     if recete is not None and not recete.rapor_var:
-        return [Bulgu(kural_id=kural["id"] + "_RAPORSUZ", seviye="HATA", baslik="NOAK Raporsuz Ödenmez!", mesaj="Yeni nesil oral antikoagülanlar (Eliquis, Xarelto, Pradaxa, Lixiana) raporsuz ödenmez. Sağlık Kurulu Raporu zorunludur.", sut_madde=sut, kanit=f"Tetikleyen ürün: {etiket}")]
+        return [Bulgu(
+            kural_id=kural["id"] + "_RAPORSUZ",
+            seviye="HATA",
+            baslik="KESİNTİ RİSKİ: NOAK Raporsuz Ödenmez!",
+            mesaj="Dabigatran, Rivaroksaban, Edoksaban ve Apiksaban raporsuz olarak SGK kapsamında kesinlikle ödenmez.",
+            sut_madde=sut,
+            kanit=f"Tetikleyen ürün: {etiket}"
+        )]
 
     metin = normalize(rapor.serbest_metin or "")
-    kodlar = [k.upper() for k in (rapor.tani_kodlari or [])]
+    kodlar = [k.upper().strip() for k in (rapor.tani_kodlari or [])]
+    olumsuzluk_kelimeleri = ("olmayan", "bulunmayan", "yok", "yoktur", "degil", "izlenmedi", "saptanmadi", "mevcut degil", "haric")
     bulgular: list[Bulgu] = []
 
+    # --- 1. KONTROL: ORTA VEYA CİDDİ MİTRAL DARLIK OLMADIĞI BELİRTİLMİŞ Mİ? ---
+    mitral_gecti = "mitral" in metin
+    mitral_olumsuz = False
+    if mitral_gecti:
+        for m in re.finditer(r"mitral", metin):
+             pencere = metin[max(0, m.start() - 35): min(len(metin), m.end() + 65)]
+             if any(neg in pencere for neg in olumsuzluk_kelimeleri):
+                 mitral_olumsuz = True
+                 break
+
+    if mitral_gecti and mitral_olumsuz:
+        bulgular.append(Bulgu(
+            kural_id=kural["id"] + "_MITRAL_OK",
+            seviye="BILGI",
+            baslik="1. Mitral Darlık Kontrolü: UYGUN",
+            mesaj="Raporda hastada orta veya ciddi mitral darlık olmadığı yazılmış.",
+            sut_madde=sut,
+            kanit="orta/ciddi mitral darlık yok"
+        ))
+    elif mitral_gecti and not mitral_olumsuz:
+        bulgular.append(Bulgu(
+            kural_id=kural["id"] + "_MITRAL_VAR",
+            seviye="HATA",
+            baslik="1. Mitral Darlık Kontrolü: HATA (Mitral Darlık Mevcut / Olumsuzluk Yok)",
+            mesaj="Raporda 'mitral darlık' ifadesi geçiyor ancak 'olmadığı / bulunmadığı / yoktur' ibaresi tespit edilemedi! Orta-ciddi mitral darlığı olanlarda NOAK ödenmez.",
+            sut_madde=sut,
+            kanit="Mitral darlık ifadesini kontrol edin."
+        ))
+    else:
+        bulgular.append(Bulgu(
+            kural_id=kural["id"] + "_MITRAL_EKS",
+            seviye="HATA",
+            baslik="1. Mitral Darlık Kontrolü: EKSİK İBARE!",
+            mesaj="Raporda hastada 'orta veya ciddi mitral darlık olmadığı' açıkça belirtilmemiştir! (SUT 4.2.15.D-1 gereği raporda yazması zorunludur).",
+            sut_madde=sut,
+            kanit="Aranan ibare: 'orta-ciddi mitral darlık olmayan / yoktur'"
+        ))
+
+    # --- 2. KONTROL: MEKANİK PROTEZ KAPAĞI OLMADIĞI BELİRTİLMİŞ Mİ? ---
+    kapak_gecti = any(k in metin for k in ("mekanik protez", "mekanik kapak", "protez kapak", "kalp kapagi"))
+    kapak_olumsuz = False
+    if kapak_gecti:
+        for kalip in ("mekanik protez", "mekanik kapak", "protez kapak", "kalp kapagi"):
+            for m in re.finditer(kalip, metin):
+                pencere = metin[max(0, m.start() - 35): min(len(metin), m.end() + 65)]
+                if any(neg in pencere for neg in olumsuzluk_kelimeleri):
+                    kapak_olumsuz = True
+                    break
+
+    if kapak_gecti and kapak_olumsuz:
+        bulgular.append(Bulgu(
+            kural_id=kural["id"] + "_KAPAK_OK",
+            seviye="BILGI",
+            baslik="2. Mekanik Protez Kapak Kontrolü: UYGUN",
+            mesaj="Raporda hastada mekanik protez kapağı olmadığı belirtilmiş.",
+            sut_madde=sut,
+            kanit="Mekanik protez kapak yok"
+        ))
+    elif kapak_gecti and not kapak_olumsuz:
+        bulgular.append(Bulgu(
+            kural_id=kural["id"] + "_KAPAK_VAR",
+            seviye="HATA",
+            baslik="2. Mekanik Protez Kapak Kontrolü: HATA (Protez Kapak Mevcut!)",
+            mesaj="Raporda protez kapak ifadesi var ancak 'olmadığı / yoktur' ibaresi tespit edilemedi! Mekanik protez kapağı olanlarda NOAK ödenmez.",
+            sut_madde=sut,
+            kanit="Mekanik protez kapak ifadesini kontrol edin."
+        ))
+    else:
+        bulgular.append(Bulgu(
+            kural_id=kural["id"] + "_KAPAK_EKS",
+            seviye="HATA",
+            baslik="2. Mekanik Protez Kapak Kontrolü: EKSİK İBARE!",
+            mesaj="Raporda hastada 'mekanik protez kapağı olmadığı' açıkça belirtilmemiştir! (SUT 4.2.15.D-1 gereği raporda yazması zorunludur).",
+            sut_madde=sut,
+            kanit="Aranan ibare: 'mekanik protez kapağı olmayan / yoktur'"
+        ))
+
+    # --- 3. KONTROL: NON-VALVULER ATRİYAL FİBRİLASYON (NVAF) VEYA DVT/PE TEŞHİSİ ---
+    nvaf_var = any(k in metin for k in ("nonvalvuler", "non valvuler", "nvaf", "atriyal fibrilasyon", "atrial fibrilasyon"))
+    dvt_pe_var = any(k in metin for k in ("derin ven", "dvt", "pulmoner emboli", "pulmoner tromboemboli")) or any(k.startswith(("I80", "I82", "I26")) for k in kodlar)
+
+    if any(k in metin for k in ("nonvalvuler", "non valvuler", "nvaf")):
+        bulgular.append(Bulgu(
+            kural_id=kural["id"] + "_NVAF_OK",
+            seviye="BILGI",
+            baslik="3. Teşhis Kontrolü: Non-Valvuler Atriyal Fibrilasyon (NVAF) Var",
+            mesaj="Raporda Non-Valvuler Atriyal Fibrilasyon (NVAF) tanısı mevcut.",
+            sut_madde=sut,
+            kanit="Non-Valvuler Atriyal Fibrilasyon (NVAF) var"
+        ))
+    elif nvaf_var or any(k.startswith("I48") for k in kodlar):
+        bulgular.append(Bulgu(
+            kural_id=kural["id"] + "_NVAF_UYARI",
+            seviye="UYARI",
+            baslik="3. Teşhis Kontrolü: AF Var Ama 'Non-Valvuler' İbaresi Eksik Olabilir",
+            mesaj="Raporda Atriyal Fibrilasyon (I48) görülüyor ancak 'Non-Valvuler (NVAF)' kelimesi açıkça geçmiyor. Rapor açıklamasında 'Non-Valvuler' yazdığından emin olun.",
+            sut_madde=sut,
+            kanit=f"Tanı kodları: {', '.join(kodlar) if kodlar else 'Yok'}"
+        ))
+    elif dvt_pe_var:
+        bulgular.append(Bulgu(
+            kural_id=kural["id"] + "_DVT_OK",
+            seviye="BILGI",
+            baslik="3. Teşhis Kontrolü: DVT / Pulmoner Embolizm (PE) Tanısı Var",
+            mesaj="Raporda Derin Ven Trombozu (DVT) veya Pulmoner Embolizm (PE) teşhisi mevcut.",
+            sut_madde=sut,
+            kanit="DVT / PE Endikasyonu"
+        ))
+    else:
+        bulgular.append(Bulgu(
+            kural_id=kural["id"] + "_TESHIS_YOK",
+            seviye="HATA",
+            baslik="3. Teşhis Kontrolü: NVAF veya DVT/PE Teşhisi Bulunamadı!",
+            mesaj="Raporda Non-Valvuler Atriyal Fibrilasyon (NVAF) veya DVT/PE teşhisi tespit edilemedi!",
+            sut_madde=sut,
+            kanit="NVAF teşhisi yok"
+        ))
+
+    # --- 4. KONTROL: RİSK FAKTÖRLERİNDEN EN AZ BİRİ VAR MI? ---
+    risk_detaylari = []
+    yas = getattr(rapor, "hasta_yasi", None)
+
+    if any(x in metin for x in ("inme oykusu", "gecirilmis inme", "iskemik inme", "inme", "svo")):
+        risk_detaylari.append("İnme öyküsü raporda belirtilmiş")
+    if any(x in metin for x in ("gecici iskemik atak", "gia oykusu", "gia", "tia")):
+        risk_detaylari.append("Geçici iskemik atak (GİA) öyküsü raporda belirtilmiş")
+    if (yas is not None and yas >= 75) or any(x in metin for x in ("75 yas", "75 ve uzeri", ">= 75", ">=75", "yetmis bes yas")):
+        risk_detaylari.append("Hasta rapor düzenlendiği zaman 75 yaş ve üstüymüş")
+    if any(x in metin for x in ("nyha sinif 2", "nyha sinif ii", "nyha 2", "nyha ii", "sinif ii kalp", "sinif 2 kalp")):
+        risk_detaylari.append("NYHA Sınıf 2 Kalp Yetmezliği raporda belirtilmiş")
+    if any(x in metin for x in ("nyha sinif 3", "nyha sinif iii", "nyha 3", "nyha iii", "sinif iii kalp", "sinif 3 kalp")):
+        risk_detaylari.append("NYHA Sınıf 3 Kalp Yetmezliği raporda belirtilmiş")
+    if any(x in metin for x in ("nyha sinif 4", "nyha sinif iv", "nyha 4", "nyha iv", "sinif iv kalp", "sinif 4 kalp")):
+        risk_detaylari.append("NYHA Sınıf 4 Kalp Yetmezliği raporda belirtilmiş")
+    if not any("NYHA" in r for r in risk_detaylari) and any(x in metin for x in ("kalp yetmezligi", "kalp yetersizligi", "nyha")):
+        risk_detaylari.append("Kalp Yetmezliği (NYHA >= II) raporda belirtilmiş")
+    if any(x in metin for x in ("diabetes mellitus", "diyabet", "tip 2 dm", "tip-2 dm", "dm ")):
+        risk_detaylari.append("Rapor açıklamasında Diabetes Mellitus (DM) belirtilmiş")
+    if any(k.startswith(("E10", "E11", "E12", "E13", "E14")) for k in kodlar):
+        risk_detaylari.append("Raporda altta Diabetes Mellitus (DM) Tanı Kodu da var")
+    if any(x in metin for x in ("hipertansiyon", "esansiyel hipertansiyon", "ht ")):
+        risk_detaylari.append("Rapor açıklamasında Hipertansiyon (HT) belirtilmiş")
+    if any(k.startswith(("I10", "I11", "I12", "I13", "I15")) for k in kodlar):
+        risk_detaylari.append("Raporda altta Hipertansiyon (HT) Tanı Kodu da var")
+
+    if risk_detaylari:
+        bulgular.append(Bulgu(
+            kural_id=kural["id"] + "_RISK_OK",
+            seviye="BILGI",
+            baslik="4. Risk Faktörü Kontrolü: UYGUN (En Az Bir Risk Faktörü Var)",
+            mesaj="Tespit edilen durumlar: " + " | ".join(risk_detaylari),
+            sut_madde=sut,
+            kanit=risk_detaylari[0]
+        ))
+    elif not dvt_pe_var:
+        bulgular.append(Bulgu(
+            kural_id=kural["id"] + "_RISK_YOK",
+            seviye="HATA",
+            baslik="4. Risk Faktörü Kontrolü: HATA (Hastada Durumlardan Hiçbiri Yok!)",
+            mesaj="Raporda/Hastada aranan risk faktörlerinden (İnme öyküsü, GİA öyküsü, >=75 yaş, NYHA Sınıf 2-3-4 Kalp Yetmezliği, DM veya HT) HİÇBİRİ tespit edilemedi!",
+            sut_madde=sut,
+            kanit="Hastada durumlardan hiçbiri yok"
+        ))
+
+    # --- 5. KONTROL: MİNİMUM 2 AYLIK VARFARİN VE 5 ÖLÇÜMÜN 3'ÜNDE INR 2-3 İBARESİ ---
     varfarin_var = any(w in metin for w in ("varfarin", "warfarin", "coumadin", "kumadin"))
     iki_ay_var = bool(re.search(r"\b(2|iki)\s*ay", metin))
     bes_olcum_uc_var = ("5" in metin or "bes" in metin) and ("3" in metin or "uc" in metin)
     inr_var = "inr" in metin
+    svo_istisnasi = varfarin_var and any(x in metin for x in ("serebrovaskuler olay", "svo gecir", "inme gecir"))
 
-    if varfarin_var and iki_ay_var and bes_olcum_uc_var and inr_var:
-        bulgular.append(Bulgu(kural_id=kural["id"] + "_VARFARIN_OK", seviye="BILGI", baslik="NOAK Zorunlu Varfarin / INR Şartı Tamam", mesaj="Raporda 'En az 2 ay varfarin kullanımı ve son 5 ölçümün en az 3'ünde INR değerinin 2-3 arasında tutulamadığı' zorunlu ibaresi eksiksiz tespit edildi.", sut_madde=sut, kanit=f"Tetikleyen: {etiket}"))
-    elif varfarin_var or inr_var:
+    if (varfarin_var and iki_ay_var and bes_olcum_uc_var and inr_var) or svo_istisnasi:
+        bulgular.append(Bulgu(
+            kural_id=kural["id"] + "_VARFARIN_OK",
+            seviye="BILGI",
+            baslik="5. Varfarin / INR Yanıtsızlık İbaresi: UYGUN",
+            mesaj="Raporda 'En az 2 aylık varfarin tedavisi sonrası en az 1'er hafta arayla yapılan son 5 ölçümün en az 3'ünde INR değerinin 2-3 arasında tutulamadığı' (veya varfarin altında SVO geçirdiği) yazılı.",
+            sut_madde=sut,
+            kanit="INR sonucuyla ilgili uygun ibare var"
+        ))
+    else:
         eksikler = []
+        if not varfarin_var:
+            eksikler.append("Varfarin/Coumadin kullanımı")
         if not iki_ay_var:
-            eksikler.append("'en az 2 ay süreyle kullanım'")
+            eksikler.append("En az 2 ay süre şartı")
         if not bes_olcum_uc_var:
-            eksikler.append("'son 5 ölçümün en az 3'ünde'")
+            eksikler.append("Son 5 ölçümün en az 3'ünde şartı")
         if not inr_var:
-            eksikler.append("'hedeflenen INR (2-3) değerinin tutulamaması'")
-        bulgular.append(Bulgu(kural_id=kural["id"] + "_VARFARIN_EKSIK_DETAY", seviye="HATA", baslik="KESİNTİ RİSKİ: Varfarin / INR İbaresi Eksik Yazılmış!", mesaj=f"Raporda Varfarin/INR bahsi geçiyor ANCAK zorunlu SUT kalıbındaki şu unsurlar tespit edilemedi: {', '.join(eksikler)}. Sağlık kurulu raporunda 'En az 2 ay süre ile varfarin kullanılmasından sonra en az birer hafta ara ile yapılan son 5 ölçümün en az 3'ünde varfarin ile hedeflenen INR değerinin 2-3 arasında tutulamadığı' açıkça belirtilmelidir.", sut_madde=sut, kanit=f"Eksik unsurlar: {', '.join(eksikler)}"))
+            eksikler.append("INR 2-3 arasında tutulamama şartı")
+        bulgular.append(Bulgu(
+            kural_id=kural["id"] + "_VARFARIN_HATA",
+            seviye="HATA",
+            baslik="5. Varfarin / INR Yanıtsızlık İbaresi: EKSİK VEYA HATALI!",
+            mesaj=(
+                f"Raporda zorunlu Varfarin/INR cümlesinde şu unsurlar eksik: {', '.join(eksikler)}. "
+                "Tam ibare: 'En az 2 ay süre ile varfarin kullanılmasından sonra en az birer hafta ara ile yapılan son 5 ölçümün en az 3'ünde varfarin ile hedeflenen INR değerinin 2-3 arasında tutulamadığı' olmalıdır."
+            ),
+            sut_madde=sut,
+            kanit=f"Eksik: {', '.join(eksikler)}"
+        ))
+
+    # --- 6. KONTROL: MG TÜRÜNDEN TEDAVİ ŞEMASI VAR MI? ---
+    ilac_metinleri = " ".join(i.ad for i in rapor.ilaclar) + " " + (rapor.serbest_metin or "")
+    mg_semasi_var = bool(re.search(r"\b\d+(?:[.,]\d+)?\s*(mg|miligram)\b", ilac_metinleri, re.IGNORECASE))
+
+    if mg_semasi_var:
+        bulgular.append(Bulgu(
+            kural_id=kural["id"] + "_MG_SEMA_OK",
+            seviye="BILGI",
+            baslik="6. Tedavi Şeması (mg) Kontrolü: UYGUN",
+            mesaj="Raporda (açıklamalarda veya etkin madde bilgileri kısmında) mg cinsinden tedavi şeması var.",
+            sut_madde=sut,
+            kanit="mg cinsinden tedavi şeması var"
+        ))
     else:
-        bulgular.append(Bulgu(kural_id=kural["id"] + "_VARFARIN_YOK", seviye="HATA", baslik="KESİNTİ RİSKİ: Zorunlu Varfarin (Coumadin) İbaresi Yok!", mesaj="NOAK'ların SGK tarafından ödenebilmesi için Sağlık Kurulu Raporunda: 'En az 2 ay süre ile varfarin kullanılmasından sonra en az birer hafta ara ile yapılan son 5 ölçümün en az 3'ünde varfarin ile hedeflenen INR değerinin 2-3 arasında tutulamadığı' ibaresinin yer alması ZORUNLUDUR.", sut_madde=sut, kanit=f"Tetikleyen ürün: {etiket}"))
+        bulgular.append(Bulgu(
+            kural_id=kural["id"] + "_MG_SEMA_YOK",
+            seviye="UYARI",
+            baslik="6. Tedavi Şeması (mg) Kontrolü: MG DEĞERİ TESPİT EDİLEMEDİ!",
+            mesaj="Raporda (açıklamalarda veya altta etkin madde bilgileri kısmında) ilacın mg türünden tedavi şeması (Örn: 1x20 mg, 2x5 mg vb.) mutlaka yer almalıdır! Lütfen kontrol edin.",
+            sut_madde=sut,
+            kanit="Okunan metinde 'mg' ifadesi bulunamadı."
+        ))
 
-    for kalip in ("mekanik protez", "mekanik kapak", "orta ciddi mitral darlik", "ciddi mitral darlik"):
-        if kalip in metin:
-            idx = metin.find(kalip)
-            cevre = metin[max(0, idx - 25): idx + len(kalip) + 35]
-            if not any(neg in cevre for neg in ("olmayan", "bulunmayan", "yok", "degil", "haric", "disinda")):
-                bulgular.append(Bulgu(kural_id=kural["id"] + "_KAPAK_ENGELI", seviye="HATA", baslik="KESİNTİ RİSKİ: Mekanik Protez Kapak / Mitral Darlık!", mesaj="NOAK grubu ilaçlar yalnızca NONVALVULER Atriyal Fibrilasyonda ödenir. Orta-ciddi mitral darlığı veya mekanik protez kapağı olan hastalarda ÖDENMEZ!", sut_madde=sut, kanit="Raporda mekanik kapak / mitral darlık ifadesi tespit edildi."))
-                break
+    # --- 7. KONTROL: RAPOR SÜRESİ (MAX 1 YIL) VE SAĞLIK KURULU HEKİM BRANŞLARI ---
+    bulgular.append(Bulgu(
+        kural_id=kural["id"] + "_KURUL_BILGI",
+        seviye="BILGI",
+        baslik="7. Rapor Türü / Max Süre / Hekim Branşı Kontrolü",
+        mesaj=(
+            "1 yıl süreli SAĞLIK KURULU RAPORU (en az birinin Kardiyoloji veya Nöroloji uzmanı olması koşuluyla; "
+            "Kardiyoloji, İç Hastalıkları, Göğüs Hastalıkları, KDC, Girişimsel Radyoloji, Beyin ve Sinir Cerrahisi ve Nöroloji uzmanlarından en az 3'ünün bulunduğu) "
+            "veya ilk iki rapor süresi (toplam 24 ay) sonunda ilgili uzman hekim raporu olmalıdır."
+        ),
+        sut_madde=sut,
+        kanit=f"Tetikleyen ürün: {etiket}"
+    ))
 
-    dvt_pe_var = any(k in metin for k in ("derin ven", "dvt", "pulmoner emboli", "pulmoner tromboemboli", "venoz tromboemboli", "vte")) or any(k.startswith(("I80", "I82", "I26")) for k in kodlar)
-    nvaf_var = any(k in metin for k in ("atriyal fibrilasyon", "atrial fibrilasyon", "nvaf", "nonvalvuler", "non valvuler", "af ")) or any(k.startswith("I48") for k in kodlar)
-
-    if nvaf_var:
-        bulunan_riskler = []
-        yas = getattr(rapor, "hasta_yasi", None)
-        if (yas is not None and yas >= 75) or any(x in metin for x in ("75 yas", "75 ve uzeri", ">= 75", ">=75")):
-            bulunan_riskler.append(">= 75 Yaş")
-        if any(x in metin for x in ("inme", "gia", "gecici iskemik", "svo", "serebrovaskuler", "emboli oykusu")):
-            bulunan_riskler.append("İnme / GİA Öyküsü")
-        if any(x in metin for x in ("kalp yetmezligi", "kalp yetersizligi", "nyha", "ef <", "ef %", "kky")):
-            bulunan_riskler.append("Kalp Yetmezliği (NYHA >= II)")
-        if any(x in metin for x in ("diyabet", "diabetes", "dm", "seker hastaligi")) or any(k.startswith(("E10", "E11", "E12", "E13", "E14")) for k in kodlar):
-            bulunan_riskler.append("Diyabet (DM)")
-        if any(x in metin for x in ("hipertansiyon", "ht", "yuksek tansiyon")) or any(k.startswith(("I10", "I11", "I12", "I13", "I15")) for k in kodlar):
-            bulunan_riskler.append("Hipertansiyon (HT)")
-
-        if bulunan_riskler:
-            bulgular.append(Bulgu(kural_id=kural["id"] + "_NVAF_RISK_OK", seviye="BILGI", baslik="NVAF Risk Faktörü ve Sağlık Kurulu Kontrolü", mesaj=f"NVAF endikasyonu için gerekli risk faktörü tespit edildi ({', '.join(bulunan_riskler)}). Raporun SAĞLIK KURULU RAPORU (Heyet) olduğunu teyit ediniz.", sut_madde=sut, kanit=f"Tespit edilen risk faktörleri: {', '.join(bulunan_riskler)}"))
-        else:
-            bulgular.append(Bulgu(kural_id=kural["id"] + "_NVAF_RISK_YOK", seviye="HATA", baslik="KESİNTİ RİSKİ: NVAF Risk Faktörü Belirtilmemiş!", mesaj="Nonvalvuler AF (NVAF) raporlarında; 'İnme/GİA öyküsü', '>= 75 yaş', 'Kalp Yetmezliği (NYHA >= II)', 'Diyabet' veya 'Hipertansiyon' risk faktörlerinden EN AZ BİRİNİN belirtilmesi zorunludur!", sut_madde=sut, kanit="Raporda NVAF risk faktörü bulunamadı."))
-    elif dvt_pe_var:
-        bulgular.append(Bulgu(kural_id=kural["id"] + "_DVT_PE_OK", seviye="BILGI", baslik="DVT / Pulmoner Embolizm Endikasyonu", mesaj="Raporda DVT / PE endikasyonu tespit edildi. Sağlık Kurulu Raporu olduğunu teyit ediniz.", sut_madde=sut, kanit=f"Tetikleyen: {etiket}"))
-    else:
-        bulgular.append(Bulgu(kural_id=kural["id"] + "_ENDIKASYON_YOK", seviye="UYARI", baslik="NOAK Endikasyonu (NVAF veya DVT/PE) Tespit Edilemedi", mesaj="NOAK'lar yalnızca Nonvalvuler AF veya DVT/PE endikasyonlarında ödenir. Rapor teşhisini kontrol ediniz.", sut_madde=sut, kanit=f"Tetikleyen: {etiket}"))
-
-    bulgular.append(Bulgu(kural_id=kural["id"] + "_GECMIS_UYARI", seviye="BILGI", baslik="Medula İlaç Geçmişi: NOAK Değişim Kuralı Hatırlatması", mesaj="Medula ilaç geçmişinde farklı bir NOAK aktif görünüyorsa sistem yeni ilacı ödemez! Eski ilacın bitmiş olması veya hekim dilekçesi ile SGK'dan pasife alınması şarttır.", sut_madde=sut, kanit=f"Reçete/Rapor NOAK: {etiket}"))
     return bulgular
+
 
 
 def calistir(rapor: Rapor, recete: Recete | None, ks: KuralSeti) -> Sonuc:
