@@ -39,39 +39,87 @@ KLOPIDOGREL = "KLOPIDOGREL"
 ASA = "ASA"
 IVABRADIN = "IVABRADIN"
 NOAK = "NOAK"
+DMAH = "DMAH"  # Düşük molekül ağırlıklı heparin (SUT 4.2.7)
 
 # --- Sınıf kodları: Osteoporoz ---
 BISFOSFONAT = "BISFOSFONAT"
 DENOSUMAB = "DENOSUMAB"
 
+# --- Sınıf kodları: Prostat (BPH) ---
+BPH_ALFA_BLOKER = "BPH_ALFA_BLOKER"
+BPH_5ARI = "BPH_5ARI"
+
 SINIF_ADLARI = {
-    ACE: "ACE inhibitörü", ARB: "Anjiyotensin reseptör blokeri", KKB: "Kalsiyum kanal blokeri",
-    DIURETIK: "Diüretik", BETA: "Beta bloker", RENIN: "Direkt renin inhibitörü", ARNI: "ARNI",
-    METFORMIN: "Metformin", SULFONILURE: "Sülfonilüre", GLINID: "Glinid", TZD: "Pioglitazon",
-    AKARBOZ: "Akarboz", DPP4: "DPP-4 inhibitörü", SGLT2: "SGLT-2 inhibitörü", GLP1: "GLP-1 agonisti",
-    INSULIN_KISA: "Kısa etkili insülin", INSULIN_UZUN: "Uzun etkili insülin",
-    ROSUVASTATIN: "Rosuvastatin", ATORVASTATIN: "Atorvastatin", SIMVASTATIN: "Simvastatin",
-    PRAVASTATIN: "Pravastatin", FLUVASTATIN: "Fluvastatin", PITAVASTATIN: "Pitavastatin",
-    KLOPIDOGREL: "Klopidogrel", ASA: "Asetilsalisilik Asit (Aspirin)", IVABRADIN: "İvabradin",
-    NOAK: "Yeni Nesil Oral Antikoagülan", BISFOSFONAT: "Bisfosfonat (Kemik Erimesi)",
+    ACE: "ACE inhibitörü",
+    ARB: "Anjiyotensin reseptör blokeri",
+    KKB: "Kalsiyum kanal blokeri",
+    DIURETIK: "Diüretik",
+    BETA: "Beta bloker",
+    RENIN: "Direkt renin inhibitörü",
+    ARNI: "ARNI (sakubitril içeren)",
+    METFORMIN: "Metformin",
+    SULFONILURE: "Sülfonilüre",
+    GLINID: "Glinid",
+    TZD: "Tiazolidindion (pioglitazon)",
+    AKARBOZ: "Akarboz",
+    DPP4: "DPP-4 inhibitörü",
+    SGLT2: "SGLT-2 inhibitörü",
+    GLP1: "GLP-1 agonisti",
+    INSULIN_KISA: "Kısa/hızlı etkili insülin",
+    INSULIN_UZUN: "Uzun etkili insülin",
+    ROSUVASTATIN: "Rosuvastatin",
+    ATORVASTATIN: "Atorvastatin",
+    SIMVASTATIN: "Simvastatin",
+    PRAVASTATIN: "Pravastatin",
+    FLUVASTATIN: "Fluvastatin",
+    PITAVASTATIN: "Pitavastatin",
+    KLOPIDOGREL: "Klopidogrel",
+    ASA: "Asetilsalisilik Asit (Aspirin)",
+    IVABRADIN: "İvabradin",
+    NOAK: "Yeni Nesil Oral Antikoagülan",
+    DMAH: "Düşük molekül ağırlıklı heparin (DMAH)",
+    BISFOSFONAT: "Bisfosfonat (Kemik Erimesi)",
     DENOSUMAB: "Denosumab (Kemik Erimesi)",
+    BPH_ALFA_BLOKER: "BPH Alfa Bloker",
+    BPH_5ARI: "BPH 5-Alfa Redüktaz İnhibitörü",
 }
 
 ETKEN_MADDELER: dict[str, str] = {
-    "ramipril": ACE, "perindopril": ACE, "enalapril": ACE, "lisinopril": ACE, "kaptopril": ACE, "silazapril": ACE, "fosinopril": ACE, "kinapril": ACE,
-    "valsartan": ARB, "losartan": ARB, "irbesartan": ARB, "kandesartan": ARB, "telmisartan": ARB, "olmesartan": ARB, "eprosartan": ARB, "azilsartan": ARB,
-    "amlodipin": KKB, "nifedipin": KKB, "felodipin": KKB, "lerkanidipin": KKB, "lasidipin": KKB, "nitrendipin": KKB, "isradipin": KKB, "nikardipin": KKB, "barnidipin": KKB, "manidipin": KKB,
-    "verapamil": KKB, "diltiazem": KKB,
-    "hidroklorotiyazid": DIURETIK, "klortalidon": DIURETIK, "indapamid": DIURETIK, "spironolakton": DIURETIK, "eplerenon": DIURETIK, "furosemid": DIURETIK, "torasemid": DIURETIK,
-    "metoprolol": BETA, "bisoprolol": BETA, "nebivolol": BETA, "karvedilol": BETA, "atenolol": BETA, "propranolol": BETA, "betaksolol": BETA,
+    # --- ACE inhibitörleri ---
+    "ramipril": ACE, "perindopril": ACE, "enalapril": ACE, "lisinopril": ACE,
+    "kaptopril": ACE, "silazapril": ACE, "fosinopril": ACE, "kinapril": ACE,
+    "trandolapril": ACE, "zofenopril": ACE, "delapril": ACE, "benazepril": ACE,
+    "imidapril": ACE, "moeksipril": ACE, "spirapril": ACE,
+    # --- ARB ---
+    "valsartan": ARB, "losartan": ARB, "irbesartan": ARB, "kandesartan": ARB,
+    "telmisartan": ARB, "olmesartan": ARB, "eprosartan": ARB, "azilsartan": ARB,
+    # --- KKB ---
+    "amlodipin": KKB, "nifedipin": KKB, "felodipin": KKB, "lerkanidipin": KKB,
+    "lasidipin": KKB, "nitrendipin": KKB, "isradipin": KKB, "nikardipin": KKB,
+    "barnidipin": KKB, "manidipin": KKB, "verapamil": KKB, "diltiazem": KKB,
+    # --- Diüretikler ---
+    "hidroklorotiyazid": DIURETIK, "klortalidon": DIURETIK, "indapamid": DIURETIK,
+    "spironolakton": DIURETIK, "eplerenon": DIURETIK, "furosemid": DIURETIK,
+    "torasemid": DIURETIK, "amilorid": DIURETIK, "triamteren": DIURETIK,
+    # --- Beta blokerler ---
+    "metoprolol": BETA, "bisoprolol": BETA, "nebivolol": BETA, "karvedilol": BETA,
+    "atenolol": BETA, "propranolol": BETA, "betaksolol": BETA,
+    # --- Diğer antihipertansif ---
     "aliskiren": RENIN, "sakubitril": ARNI,
-    "metformin": METFORMIN, "gliklazid": SULFONILURE, "glimepirid": SULFONILURE, "glibenklamid": SULFONILURE, "glipizid": SULFONILURE,
-    "repaglinid": GLINID, "nateglinid": GLINID, "pioglitazon": TZD, "akarboz": AKARBOZ,
+    # --- Antidiyabetikler ---
+    "metformin": METFORMIN,
+    "gliklazid": SULFONILURE, "glimepirid": SULFONILURE,
+    "glibenklamid": SULFONILURE, "glipizid": SULFONILURE,
+    "repaglinid": GLINID, "nateglinid": GLINID,
+    "pioglitazon": TZD, "akarboz": AKARBOZ,
     "sitagliptin": DPP4, "vildagliptin": DPP4, "saksagliptin": DPP4, "linagliptin": DPP4,
-    "dapagliflozin": SGLT2, "empagliflozin": SGLT2, "eksenatid": GLP1,
+    "dapagliflozin": SGLT2, "empagliflozin": SGLT2,
+    "eksenatid": GLP1,
     "insulin lispro": INSULIN_KISA, "insulin aspart": INSULIN_KISA, "insulin glulisin": INSULIN_KISA,
     "insulin glargine": INSULIN_UZUN, "insulin detemir": INSULIN_UZUN, "insulin degludec": INSULIN_UZUN,
-    "rosuvastatin": ROSUVASTATIN, "atorvastatin": ATORVASTATIN, "simvastatin": SIMVASTATIN, "pravastatin": PRAVASTATIN, "fluvastatin": FLUVASTATIN, "pitavastatin": PITAVASTATIN,
+    # --- Statinler ---
+    "rosuvastatin": ROSUVASTATIN, "atorvastatin": ATORVASTATIN, "simvastatin": SIMVASTATIN,
+    "pravastatin": PRAVASTATIN, "fluvastatin": FLUVASTATIN, "pitavastatin": PITAVASTATIN,
     # --- Kardiyoloji ve Kan Sulandırıcılar ---
     "klopidogrel": KLOPIDOGREL,
     "asetilsalisilik asit": ASA,
@@ -80,9 +128,24 @@ ETKEN_MADDELER: dict[str, str] = {
     "rivaroksaban": NOAK,
     "dabigatran": NOAK,
     "edoksaban": NOAK,
+    # --- Düşük molekül ağırlıklı heparinler (DMAH) -- SUT 4.2.7 ---
+    "enoksaparin": DMAH,
+    "nadroparin": DMAH,
+    "dalteparin": DMAH,
+    "tinzaparin": DMAH,
+    "bemiparin": DMAH,
     # --- Osteoporoz ---
-    "alendronat": BISFOSFONAT, "risedronat": BISFOSFONAT, "ibandronik asit": BISFOSFONAT, "zoledronik asit": BISFOSFONAT,
+    "alendronat": BISFOSFONAT, "risedronat": BISFOSFONAT,
+    "ibandronik asit": BISFOSFONAT, "zoledronik asit": BISFOSFONAT,
     "denosumab": DENOSUMAB,
+    # --- Prostat (BPH) ---
+    "alfuzosin": BPH_ALFA_BLOKER,
+    "tamsulosin": BPH_ALFA_BLOKER,
+    "terazosin": BPH_ALFA_BLOKER,
+    "doksazosin": BPH_ALFA_BLOKER,
+    "silodosin": BPH_ALFA_BLOKER,
+    "finasterid": BPH_5ARI,
+    "dutasterid": BPH_5ARI,
 }
 
 ES_ADLAR: dict[str, str] = {
@@ -91,12 +154,25 @@ ES_ADLAR: dict[str, str] = {
     "carvedilol": "karvedilol", "sacubitril": "sakubitril", "lercanidipin": "lerkanidipin", "nicardipin": "nikardipin",
     "indapamit": "indapamid", "exenatide": "eksenatid",
     "asetilsalisilik": "asetilsalisilik asit", "aspirin": "asetilsalisilik asit",
+    "doksazosio": "doksazosin", "siladosin": "silodosin",
+    # --- DMAH alternatif yazımlar ---
+    "enoxaparin": "enoksaparin",
+    "enoxaparine": "enoksaparin",
+    "enoksaparin sodyum": "enoksaparin",
+    "nadroparine": "nadroparin",
+    "nadroparina": "nadroparin",
+    "dalteparine": "dalteparin",
+    "tinzaparine": "tinzaparin",
+    "bemiparine": "bemiparin",
+    "bemiparina": "bemiparin",
 }
 
 MARKALAR: dict[str, str] = {
+    # --- Antihipertansif ---
     "exforge hct": "valsartan amlodipin hidroklorotiyazid", "exforge": "valsartan amlodipin", "twynsta": "telmisartan amlodipin",
     "sevikar hct": "olmesartan amlodipin hidroklorotiyazid", "sevikar": "olmesartan amlodipin", "triplixam": "perindopril indapamid amlodipin",
     "diovan": "valsartan", "cozaar": "losartan", "atacand": "kandesartan", "micardis": "telmisartan", "aprovel": "irbesartan", "norvasc": "amlodipin",
+    # --- Antidiyabetik ---
     "glifor": "metformin", "diaformin": "metformin", "matofin": "metformin", "diamicron": "gliklazid", "amaryl": "glimepirid", "glucobay": "akarboz",
     "glifix plus": "pioglitazon metformin", "glifix": "pioglitazon", "novonorm": "repaglinid", "starlix": "nateglinid",
     "janumet": "sitagliptin metformin", "januvia": "sitagliptin", "galvus met": "vildagliptin metformin", "galvus": "vildagliptin",
@@ -111,6 +187,12 @@ MARKALAR: dict[str, str] = {
     "coraspin": "asetilsalisilik asit", "ecopirin": "asetilsalisilik asit", "aspirin": "asetilsalisilik asit", "babyprin": "asetilsalisilik asit",
     "coralan": "ivabradin", "ivabran": "ivabradin",
     "eliquis": "apiksaban", "xarelto": "rivaroksaban", "pradaxa": "dabigatran", "lixiana": "edoksaban",
+    # --- Düşük molekül ağırlıklı heparinler (DMAH) ---
+    "oksapar": "enoksaparin", "clexane": "enoksaparin", "enoksa": "enoksaparin", "venoksa": "enoksaparin", "parix": "enoksaparin",
+    "fraxiparine": "nadroparin", "fraxiparin": "nadroparin",
+    "fragmin": "dalteparin",
+    "innohep": "tinzaparin",
+    "hibor": "bemiparin",
     # --- Statinler ---
     "ator": "atorvastatin", "alvastin": "atorvastatin", "lipitor": "atorvastatin", "atorvio": "atorvastatin", "tarden": "atorvastatin", "divator": "atorvastatin", "cholvast": "atorvastatin", "kolestor": "atorvastatin",
     "crestor": "rosuvastatin", "rovu": "rosuvastatin", "rosucard": "rosuvastatin", "roselip": "rosuvastatin", "rosuvas": "rosuvastatin", "lipovas": "rosuvastatin",
@@ -118,6 +200,15 @@ MARKALAR: dict[str, str] = {
     # --- Osteoporoz ---
     "fosamax": "alendronat", "actonel": "risedronat", "bonviva": "ibandronik asit", "aclasta": "zoledronik asit",
     "prolia": "denosumab",
+    # --- Prostat (BPH) ---
+    "xatral": "alfuzosin",
+    "flomax": "tamsulosin", "tamprost": "tamsulosin", "omniprost": "tamsulosin", "prostamisin": "tamsulosin",
+    "hytrin": "terazosin", "teraprost": "terazosin",
+    "cardura": "doksazosin", "doxacor": "doksazosin", "kardozin": "doksazosin",
+    "urorec": "silodosin", "silodyx": "silodosin",
+    "proscar": "finasterid", "prosterid": "finasterid", "dilaprost": "finasterid",
+    "avodart": "dutasterid", "dutaprost": "dutasterid",
+    "duodart": "dutasterid tamsulosin", "prostacom": "dutasterid tamsulosin",
 }
 
 try:
@@ -137,7 +228,6 @@ for _es, _asil in ES_ADLAR.items():
     _DERLENMIS.append((_asil, ETKEN_MADDELER[_asil], _desen_derle(_es)))
 
 def maddeleri_bul(metin: str) -> dict[str, str]:
-    # Tire işaretini boşluğa çevirerek klogel-a -> klogel a eşleşmesini garantiye alalım
     norm = normalize(metin.replace("-", " "))
     bulunan: dict[str, str] = {}
     if not norm:

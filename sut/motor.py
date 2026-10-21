@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import calendar
 import re
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 
 import yaml
@@ -31,6 +33,24 @@ def yukle(yol: str | Path) -> KuralSeti:
         ibareler=veri.get("ibareler", {}),
         kurallar=veri.get("kurallar", []),
     )
+
+
+def _ay_ekle(tarih: date, ay: int) -> date:
+    yil = tarih.year + (tarih.month - 1 + ay) // 12
+    yeni_ay = (tarih.month - 1 + ay) % 12 + 1
+    son_gun = calendar.monthrange(yil, yeni_ay)[1]
+    return date(yil, yeni_ay, min(tarih.day, son_gun))
+
+
+def _sadece_ht_icin_doksazosin_mi(i: Ilac, tum_kodlar: list[str]) -> bool:
+    """Ürün yalnızca doksazosin (Cardura vb.) içeriyorsa ve tanılarda N40 olmayıp
+    Hipertansiyon (I10-I15) varsa True döner (BPH kurallarından muaf tutulur)."""
+    maddeler = set(i.etken_maddeler.keys())
+    if maddeler != {"doksazosin"}:
+        return False
+    n40_var = any(k.upper().startswith("N40") for k in tum_kodlar)
+    ht_var = any(k.upper().startswith(("I10", "I11", "I12", "I13", "I15")) for k in tum_kodlar)
+    return ht_var and not n40_var
 
 
 def _gruplar(havuz: list[Ilac], kapsam: str) -> list[tuple[str, set[str]]]:
@@ -251,32 +271,86 @@ def _tekil_sinif_kurali(kural: dict, havuz: list[Ilac]) -> list[Bulgu]:
             baslik=kural.get("baslik", "Kombinasyon Yasağı"),
             mesaj=kural.get("mesaj", "").strip(),
             sut_madde=kural.get("sut_madde"),
-            kanit="Birlikte yazılan ürünler: " + ", ".join(urunler),
+            kanit=f"Tespit edilen etken maddeler: {', '.join(sorted(etken_maddeler))} (Ürünler: {', '.join(urunler)})",
         )
     ]
 
 
 _TIP2DM_DESENI = re.compile(r"tip\s*-?\s*2\s*(dm|diyabet)")
+_GEBELIK_HAFTA_DESENI = re.compile(r"(\d+\s*\.?\s*gebelik\s+hafta|\d+\s*\.?\s*hafta\w*\s+gebe|gebelig\w*\s+\d+\s*\.?\s*hafta|gebelik\s+hafta)")
 
 
-def _tani_kodu_ibare_kurali(kural: dict, rapor: Rapor, recete: Recete | None, havuz: list[Ilac]) -> list[Bulgu]:
+def _tani_kodu_ibare_kurali(
+    kural: dict, ks: KuralSeti, rapor: Rapor, recete: Recete | None, havuz: list[Ilac]
+) -> list[Bulgu]:
+    """Belirli tanı kodu önekleri (ör. E12-E14 veya gebelik O22/O30/Z32-Z35) +
+    tetikleyici ilaç sınıfı varsa, rapor ya da reçete metninde ilgili ibareyi arar."""
     tetikleyici = kural.get("tetikleyici", {})
     gruplar = _gruplar(havuz, kural.get("kapsam", "urun"))
     tetikleyen = [e for e, s in gruplar if _tetiklendi_mi(tetikleyici, s)]
     if not tetikleyen:
         return []
-    onekler = tuple(k.upper() for k in kural.get("tani_onekleri", []))
+
+    onekler = tuple(str(k).upper() for k in kural.get("tani_onekleri", []))
     if not onekler:
         return []
-    eslesen = [t for t in (rapor.tani_kodlari or []) if t.upper().startswith(onekler)]
+
+    tum_kodlar = list(rapor.tani_kodlari or []) + (list(recete.tani_kodlari or []) if recete else [])
+    eslesen = [t for t in tum_kodlar if t.upper().startswith(onekler)]
     if not eslesen:
         return []
+
     etiket = ", ".join(tetikleyen)
     baslik = kural.get("baslik", "Tanı Kodu ve İbare Kontrolü")
-    birlesik = normalize((rapor.serbest_metin or "") + " " + ((recete.aciklama if recete else "") or ""))
-    if _TIP2DM_DESENI.search(birlesik):
-        return [Bulgu(kural_id=kural["id"], seviye="BILGI", baslik=baslik, mesaj=kural.get("mesaj_var", "Gereken ifade mevcut.").strip(), sut_madde=kural.get("sut_madde"), kanit=f"Tanı kodu: {', '.join(eslesen)} · Tetikleyen ürün: {etiket}")]
-    return [Bulgu(kural_id=kural["id"], seviye=kural.get("seviye", "HATA"), baslik=baslik, mesaj=kural.get("mesaj_yok", "").strip(), sut_madde=kural.get("sut_madde"), kanit=f"Tanı kodu: {', '.join(eslesen)} · Tetikleyen ürün: {etiket}")]
+    birlesik_ham = (rapor.serbest_metin or "") + " " + ((recete.aciklama if recete else "") or "")
+    birlesik_norm = normalize(birlesik_ham)
+
+    ibare_adi = kural.get("ibare")
+    bulundu = False
+    kanit_metni = ""
+
+    if ibare_adi and ibare_adi in ks.ibareler:
+        tanim = ks.ibareler[ibare_adi]
+        sonuc = ibare_ara(
+            birlesik_ham,
+            tanim.get("kaliplar", []),
+            esik=float(tanim.get("esik", 0.75)),
+        )
+        if sonuc.bulundu:
+            bulundu = True
+            kanit_metni = sonuc.kanit
+        elif ibare_adi == "gebelik_haftasi_ifadesi":
+            m = _GEBELIK_HAFTA_DESENI.search(birlesik_norm)
+            if m:
+                bulundu = True
+                kanit_metni = m.group(0)
+    else:
+        m = _TIP2DM_DESENI.search(birlesik_norm)
+        if m:
+            bulundu = True
+            kanit_metni = m.group(0)
+
+    if bulundu:
+        return [
+            Bulgu(
+                kural_id=kural["id"],
+                seviye="BILGI",
+                baslik=baslik,
+                mesaj=kural.get("mesaj_var", "Gereken ifade mevcut.").strip(),
+                sut_madde=kural.get("sut_madde"),
+                kanit=f"Tanı kodu: {', '.join(eslesen)} · Bulunan ifade: '{kanit_metni}' · Ürün: {etiket}",
+            )
+        ]
+    return [
+        Bulgu(
+            kural_id=kural["id"],
+            seviye=kural.get("seviye", "HATA"),
+            baslik=baslik,
+            mesaj=kural.get("mesaj_yok", "").strip(),
+            sut_madde=kural.get("sut_madde"),
+            kanit=f"Tanı kodu: {', '.join(eslesen)} · Tetikleyen ürün: {etiket}",
+        )
+    ]
 
 
 def _cok_kaynakli_ibare_kurali(kural: dict, ks: KuralSeti, rapor: Rapor, recete: Recete | None, havuz: list[Ilac]) -> list[Bulgu]:
@@ -307,8 +381,10 @@ def _raporsuz_yasakli_urun_kurali(kural: dict, recete: Recete | None) -> list[Bu
 
 
 def _brans_kurali(kural: dict, rapor: Rapor, recete: Recete | None, havuz: list[Ilac]) -> list[Bulgu]:
+    tum_kodlar = list(rapor.tani_kodlari or []) + (list(recete.tani_kodlari or []) if recete else [])
+    suzulen_havuz = [i for i in havuz if not _sadece_ht_icin_doksazosin_mi(i, tum_kodlar)]
     tetikleyici = kural.get("tetikleyici", {})
-    gruplar = _gruplar(havuz, kural.get("kapsam", "urun"))
+    gruplar = _gruplar(suzulen_havuz, kural.get("kapsam", "urun"))
     tetikleyen = [e for e, s in gruplar if _tetiklendi_mi(tetikleyici, s)]
     if not tetikleyen:
         return []
@@ -324,7 +400,7 @@ def _brans_kurali(kural: dict, rapor: Rapor, recete: Recete | None, havuz: list[
     if raporsuz:
         brans = recete.hekim_bransi
         if not brans:
-            return [Bulgu(kural_id=kural["id"], seviye="UYARI", baslik=baslik, mesaj="Raporsuz reçetede hekim branşı girilmemiş. " + kural.get("mesaj_brans_yok", "").strip(), sut_madde=kural.get("sut_madde"), kanit=f"Tetikleyen ürün: {etiket}")]
+            return [Bulgu(kural_id=kural["id"], seviye="UYARI", baslik=baslik, mesaj="Raporsuz reçetede hekim branşı girilmemiş. " + kural.get("mesaj_brans_yok", kural.get("mesaj_yok", "")).strip(), sut_madde=kural.get("sut_madde"), kanit=f"Tetikleyen ürün: {etiket}")]
         if not izinli_mi(brans):
             return [Bulgu(kural_id=kural["id"], seviye=kural.get("seviye", "HATA"), baslik=baslik, mesaj=kural.get("mesaj_yok", "").strip(), sut_madde=kural.get("sut_madde"), kanit=f"Reçeteyi yazan branş: {brans} · Tetikleyen ürün: {etiket}")]
         return []
@@ -428,17 +504,231 @@ def _ldl_kurali(kural: dict, rapor: Rapor, recete: Recete | None, havuz: list[Il
     return bulgular
 
 
+def _doksazosin_kurali(kural: dict, rapor: Rapor, recete: Recete | None, havuz: list[Ilac]) -> list[Bulgu]:
+    """Doksazosin (Cardura vb.) hem Hipertansiyon (I10-I15) hem BPH (N40) için kullanılır.
+    Girilen tanı koduna göre hangi Medula uyarı kodunun seçileceğini bildirir."""
+    doks_urunler = [i.ad for i in havuz if "doksazosin" in i.etken_maddeler]
+    if not doks_urunler:
+        return []
+
+    etiket = ", ".join(dict.fromkeys(doks_urunler))
+    sut = kural.get("sut_madde", "SUT 13.3 / EK-4/A")
+    tum_kodlar = list(rapor.tani_kodlari or []) + (list(recete.tani_kodlari or []) if recete else [])
+
+    n40_var = any(k.upper().startswith("N40") for k in tum_kodlar)
+    ht_var = any(k.upper().startswith(("I10", "I11", "I12", "I13", "I15")) for k in tum_kodlar)
+
+    if ht_var and not n40_var:
+        return [Bulgu(
+            kural_id=kural["id"] + "_HT",
+            seviye="BILGI",
+            baslik="Doksazosin (Cardura): Hipertansiyon Endikasyonu ve Uyarı Kodu",
+            mesaj=(
+                f"Reçete/Raporda Hipertansiyon tanı kodu mevcut, N40 (BPH) tanı kodu yok. "
+                f"'{etiket}' Hipertansiyon endikasyonunda değerlendirildi (Üroloji branş şartı aranmaz). "
+                "Medula'da mutlaka HİPERTANSİYON UYARI KODU seçilmelidir!"
+            ),
+            sut_madde=sut,
+            kanit=f"Ürün: {etiket} · Tanı: Hipertansiyon"
+        )]
+    elif n40_var and not ht_var:
+        return [Bulgu(
+            kural_id=kural["id"] + "_BPH",
+            seviye="BILGI",
+            baslik="Doksazosin (Cardura): BPH (Prostat) Endikasyonu ve Uyarı Kodu",
+            mesaj=(
+                f"Reçete/Raporda N40 (BPH) tanı kodu mevcut. "
+                f"'{etiket}' Prostat (BPH - SUT 13.3) kapsamında değerlendirildi (Üroloji uzmanı şartı ve 1 yıllık rapor süresi aranır). "
+                "Medula'da mutlaka BPH UYARI KODU seçilmelidir!"
+            ),
+            sut_madde=sut,
+            kanit=f"Ürün: {etiket} · Tanı: N40 (BPH)"
+        )]
+    elif n40_var and ht_var:
+        return [Bulgu(
+            kural_id=kural["id"] + "_IKISI",
+            seviye="BILGI",
+            baslik="Doksazosin (Cardura): Hem Hipertansiyon Hem BPH (N40) Tanısı Mevcut",
+            mesaj=(
+                f"Belgede hem Hipertansiyon (I10-I15) hem de BPH (N40) tanı kodu yer alıyor. "
+                "Reçeteyi yazan hekim branşına ve rapor türüne göre Medula'da uygun uyarı kodunu (HT tanısıyla Aile Hekimi/Dahiliye yazdıysa Hipertansiyon uyarı kodu; Üroloji BPH için yazdıysa BPH uyarı kodu) seçiniz."
+            ),
+            sut_madde=sut,
+            kanit=f"Ürün: {etiket} · Tanılar: {', '.join(tum_kodlar)}"
+        )]
+    return []
+
+
 def _tani_kodu_kurali(kural: dict, rapor: Rapor, recete: Recete | None, havuz: list[Ilac]) -> list[Bulgu]:
-    tetikleyen = [e for e, s in _gruplar(havuz, "urun") if _tetiklendi_mi(kural.get("tetikleyici", {}), s)]
+    tum_kodlar = list(rapor.tani_kodlari or []) + (list(recete.tani_kodlari or []) if recete else [])
+    suzulen_havuz = [i for i in havuz if not _sadece_ht_icin_doksazosin_mi(i, tum_kodlar)]
+    tetikleyen = [e for e, s in _gruplar(suzulen_havuz, kural.get("kapsam", "urun")) if _tetiklendi_mi(kural.get("tetikleyici", {}), s)]
     if not tetikleyen:
         return []
     beklenen = tuple(k.upper() for k in kural.get("zorunlu_kodlar", []))
     if not beklenen:
         return []
-    rapordakiler = rapor.tani_kodlari or []
-    if any(any(t.upper().startswith(b) for b in beklenen) for t in rapordakiler):
+
+    raporsuz = recete is not None and not recete.rapor_var
+    if raporsuz and kural.get("raporsuz_tani_kaynagi") == "recete":
+        kaynak_kodlar = (recete.tani_kodlari if recete else []) or []
+    elif not raporsuz and kural.get("raporlu_tani_kaynagi") == "rapor":
+        kaynak_kodlar = rapor.tani_kodlari or []
+    else:
+        kaynak_kodlar = tum_kodlar
+
+    eslesenler = [t for t in kaynak_kodlar if any(t.upper().startswith(b) for b in beklenen)]
+    if eslesenler:
+        if kural.get("mesaj_var"):
+            return [Bulgu(
+                kural_id=kural["id"] + "_OK",
+                seviye="BILGI",
+                baslik=kural.get("baslik", "Tanı Kodu Kontrolü"),
+                mesaj=kural["mesaj_var"].strip(),
+                sut_madde=kural.get("sut_madde"),
+                kanit=f"Bulunan Tanı Kodu: {', '.join(eslesenler)} · Ürün: {', '.join(tetikleyen)}"
+            )]
         return []
-    return [Bulgu(kural_id=kural["id"], seviye=kural.get("seviye", "HATA"), baslik=kural.get("baslik", "Tanı Kodu Eksik"), mesaj=kural.get("mesaj_yok", "").strip(), sut_madde=kural.get("sut_madde"), kanit=f"Tetikleyen: {', '.join(tetikleyen)} | Aranan: {', '.join(beklenen)}")]
+
+    return [Bulgu(
+        kural_id=kural["id"],
+        seviye=kural.get("seviye", "HATA"),
+        baslik=kural.get("baslik", "Tanı Kodu Eksik"),
+        mesaj=kural.get("mesaj_yok", "").strip(),
+        sut_madde=kural.get("sut_madde"),
+        kanit=f"Tetikleyen: {', '.join(tetikleyen)} | Aranan: {', '.join(beklenen)} | Mevcut: {', '.join(kaynak_kodlar) if kaynak_kodlar else 'Yok'}"
+    )]
+
+
+def _rapor_yetki_sure_kurali(kural: dict, rapor: Rapor, recete: Recete | None, havuz: list[Ilac]) -> list[Bulgu]:
+    raporsuz = recete is not None and not recete.rapor_var
+    if kural.get("yalniz_raporlu", True) and raporsuz:
+        return []
+
+    tum_kodlar = list(rapor.tani_kodlari or []) + (list(recete.tani_kodlari or []) if recete else [])
+    suzulen_havuz = [i for i in havuz if not _sadece_ht_icin_doksazosin_mi(i, tum_kodlar)]
+    tetikleyen = [e for e, s in _gruplar(suzulen_havuz, kural.get("kapsam", "urun")) if _tetiklendi_mi(kural.get("tetikleyici", {}), s)]
+    if not tetikleyen:
+        return []
+
+    etiket = ", ".join(tetikleyen)
+    sut = kural.get("sut_madde")
+    baslik = kural.get("baslik", "Rapor Yetki ve Süre Kontrolü")
+    bulgular: list[Bulgu] = []
+
+    if not rapor.duzenleme_tarihi or not rapor.bitis_tarihi:
+        bulgular.append(Bulgu(
+            kural_id=kural["id"] + "_TARIH_EKSIK",
+            seviye="UYARI",
+            baslik=baslik,
+            mesaj="Rapor düzenleme veya bitiş tarihi eksik; azami rapor süresi doğrulanamadı.",
+            sut_madde=sut,
+            kanit=f"Tetikleyen ürün: {etiket}"
+        ))
+        return bulgular
+
+    azami_ay = int(kural.get("azami_sure_ay", 12))
+    azami_bitis = _ay_ekle(rapor.duzenleme_tarihi, azami_ay)
+    etkili_bitis = min(rapor.bitis_tarihi, azami_bitis)
+
+    if rapor.bitis_tarihi > azami_bitis:
+        bulgular.append(Bulgu(
+            kural_id=kural["id"] + "_SURE_ASIMI",
+            seviye=kural.get("seviye", "HATA"),
+            baslik=baslik,
+            mesaj=kural.get("mesaj_yok", "").strip() + f" (Rapor süresi azami {azami_ay} takvim ayını aşıyor!)",
+            sut_madde=sut,
+            kanit=f"Düzenleme: {rapor.duzenleme_tarihi.strftime('%d.%m.%Y')} · Bitiş: {rapor.bitis_tarihi.strftime('%d.%m.%Y')} · Azami Bitiş ({azami_ay} ay): {azami_bitis.strftime('%d.%m.%Y')}"
+        ))
+
+    if kural.get("recete_tarihi_rapor_araliginda_olmali", True) and recete and recete.tarih:
+        if recete.tarih < rapor.duzenleme_tarihi or recete.tarih > etkili_bitis:
+            bulgular.append(Bulgu(
+                kural_id=kural["id"] + "_RECETE_ARALIK_DISI",
+                seviye=kural.get("seviye", "HATA"),
+                baslik=baslik,
+                mesaj=f"Reçete tarihi ({recete.tarih.strftime('%d.%m.%Y')}), raporun geçerli tarih aralığı ({rapor.duzenleme_tarihi.strftime('%d.%m.%Y')} - {etkili_bitis.strftime('%d.%m.%Y')}) dışında!",
+                sut_madde=sut,
+                kanit=f"Tetikleyen ürün: {etiket}"
+            ))
+
+    return bulgular
+
+
+def _etken_madde_birliktelik_kurali(kural: dict, rapor: Rapor, recete: Recete | None, havuz: list[Ilac]) -> list[Bulgu]:
+    hedef_maddeler = {normalize(m) for m in kural.get("etken_maddeler", [])}
+    azami = int(kural.get("azami_farkli_etken_madde", 1))
+    if not hedef_maddeler:
+        return []
+
+    tum_kodlar = list(rapor.tani_kodlari or []) + (list(recete.tani_kodlari or []) if recete else [])
+    ht_tani_var = any(k.upper().startswith(("I10", "I11", "I12", "I13", "I15")) for k in tum_kodlar)
+
+    kapsam = kural.get("kapsam", "belge_ayri")
+    belge_listeleri: list[tuple[str, list[Ilac]]] = []
+    if kapsam == "belge_ayri":
+        if rapor.ilaclar:
+            belge_listeleri.append(("Rapor", rapor.ilaclar))
+        if recete and recete.ilaclar:
+            belge_listeleri.append(("Reçete", recete.ilaclar))
+    else:
+        belge_listeleri.append(("Toplam", havuz))
+
+    bulgular: list[Bulgu] = []
+    sut = kural.get("sut_madde")
+    baslik = kural.get("baslik", "Etken Madde Birliktelik Kontrolü")
+
+    for belge_adi, liste in belge_listeleri:
+        bulunan_maddeler: set[str] = set()
+        ilgili_urunler: list[str] = []
+        for urun in liste:
+            urun_maddeleri = {normalize(k) for k in urun.etken_maddeler.keys()}
+            kesisim = urun_maddeleri & hedef_maddeler
+            if kesisim:
+                bulunan_maddeler |= kesisim
+                if urun.ad not in ilgili_urunler:
+                    ilgili_urunler.append(urun.ad)
+
+        if len(bulunan_maddeler) > azami:
+            kanit_metni = f"{belge_adi} içinde birlikte bulunanlar: {', '.join(sorted(bulunan_maddeler))} ({', '.join(ilgili_urunler)})"
+            if not kural.get("hipertansiyon_istisnasi_yok", False) and "doksazosin" in bulunan_maddeler and ht_tani_var:
+                bulgular.append(Bulgu(
+                    kural_id=kural["id"] + f"_{belge_adi.upper()}_HT_ISTISNA",
+                    seviye="BILGI",
+                    baslik=baslik,
+                    mesaj=kural.get("mesaj_istisna", "Hipertansiyon tanı kodu ve Doksazosin mevcut olduğundan kombinasyon kısıtlaması uygulanmadı.").strip(),
+                    sut_madde=sut,
+                    kanit=kanit_metni
+                ))
+                continue
+
+            bulgular.append(Bulgu(
+                kural_id=kural["id"] + f"_{belge_adi.upper()}",
+                seviye=kural.get("seviye", "HATA"),
+                baslik=baslik,
+                mesaj=kural.get("mesaj", "").strip(),
+                sut_madde=sut,
+                kanit=kanit_metni
+            ))
+
+    return bulgular
+
+
+def _rapor_kodu_bilgi_kurali(kural: dict, rapor: Rapor, recete: Recete | None, havuz: list[Ilac]) -> list[Bulgu]:
+    raporsuz = recete is not None and not recete.rapor_var
+    if kural.get("yalniz_raporlu", True) and raporsuz:
+        return []
+    tetikleyen = [e for e, s in _gruplar(havuz, kural.get("kapsam", "tumu")) if _tetiklendi_mi(kural.get("tetikleyici", {}), s)]
+    if not tetikleyen:
+        return []
+    return [Bulgu(
+        kural_id=kural["id"],
+        seviye=kural.get("seviye", "BILGI"),
+        baslik=kural.get("baslik", "Rapor Kodu Bilgilendirmesi"),
+        mesaj=kural.get("mesaj", "").strip(),
+        sut_madde=kural.get("sut_madde"),
+        kanit=f"Tetikleyen: {', '.join(tetikleyen)}"
+    )]
 
 
 def _yasakli_ibare_kurali(kural: dict, rapor: Rapor, recete: Recete | None, havuz: list[Ilac]) -> list[Bulgu]:
@@ -535,7 +825,6 @@ def _aile_hekimi_rapor_uyarisi(kural: dict, rapor: Rapor, recete: Recete | None,
 
 
 def _noak_kurali(kural: dict, rapor: Rapor, recete: Recete | None, havuz: list[Ilac]) -> list[Bulgu]:
-    """NOAK (Apiksaban, Rivaroksaban, Dabigatran, Edoksaban) 8 Maddelik Tam SUT Kontrol Listesi."""
     tetikleyici = kural.get("tetikleyici", {})
     gruplar = _gruplar(havuz, "urun")
     tetikleyen = [e for e, s in gruplar if _tetiklendi_mi(tetikleyici, s)]
@@ -545,7 +834,6 @@ def _noak_kurali(kural: dict, rapor: Rapor, recete: Recete | None, havuz: list[I
     etiket = ", ".join(tetikleyen)
     sut = kural.get("sut_madde", "SUT 4.2.15.D-1")
 
-    # Raporsuz NOAK kesinlikle ödenmez
     if recete is not None and not recete.rapor_var:
         return [Bulgu(
             kural_id=kural["id"] + "_RAPORSUZ",
@@ -561,45 +849,24 @@ def _noak_kurali(kural: dict, rapor: Rapor, recete: Recete | None, havuz: list[I
     olumsuzluk_kelimeleri = ("olmayan", "bulunmayan", "yok", "yoktur", "degil", "izlenmedi", "saptanmadi", "mevcut degil", "haric")
     bulgular: list[Bulgu] = []
 
-    # --- 1. KONTROL: ORTA VEYA CİDDİ MİTRAL DARLIK OLMADIĞI BELİRTİLMİŞ Mİ? ---
+    # 1. Mitral Darlık
     mitral_gecti = "mitral" in metin
     mitral_olumsuz = False
     if mitral_gecti:
         for m in re.finditer(r"mitral", metin):
-             pencere = metin[max(0, m.start() - 35): min(len(metin), m.end() + 65)]
-             if any(neg in pencere for neg in olumsuzluk_kelimeleri):
-                 mitral_olumsuz = True
-                 break
+            pencere = metin[max(0, m.start() - 35): min(len(metin), m.end() + 65)]
+            if any(neg in pencere for neg in olumsuzluk_kelimeleri):
+                mitral_olumsuz = True
+                break
 
     if mitral_gecti and mitral_olumsuz:
-        bulgular.append(Bulgu(
-            kural_id=kural["id"] + "_MITRAL_OK",
-            seviye="BILGI",
-            baslik="1. Mitral Darlık Kontrolü: UYGUN",
-            mesaj="Raporda hastada orta veya ciddi mitral darlık olmadığı yazılmış.",
-            sut_madde=sut,
-            kanit="orta/ciddi mitral darlık yok"
-        ))
+        bulgular.append(Bulgu(kural_id=kural["id"] + "_MITRAL_OK", seviye="BILGI", baslik="1. Mitral Darlık Kontrolü: UYGUN", mesaj="Raporda hastada orta veya ciddi mitral darlık olmadığı yazılmış.", sut_madde=sut, kanit="orta/ciddi mitral darlık yok"))
     elif mitral_gecti and not mitral_olumsuz:
-        bulgular.append(Bulgu(
-            kural_id=kural["id"] + "_MITRAL_VAR",
-            seviye="HATA",
-            baslik="1. Mitral Darlık Kontrolü: HATA (Mitral Darlık Mevcut / Olumsuzluk Yok)",
-            mesaj="Raporda 'mitral darlık' ifadesi geçiyor ancak 'olmadığı / bulunmadığı / yoktur' ibaresi tespit edilemedi! Orta-ciddi mitral darlığı olanlarda NOAK ödenmez.",
-            sut_madde=sut,
-            kanit="Mitral darlık ifadesini kontrol edin."
-        ))
+        bulgular.append(Bulgu(kural_id=kural["id"] + "_MITRAL_VAR", seviye="HATA", baslik="1. Mitral Darlık Kontrolü: HATA (Mitral Darlık Mevcut / Olumsuzluk Yok)", mesaj="Raporda 'mitral darlık' ifadesi geçiyor ancak 'olmadığı / yoktur' ibaresi tespit edilemedi!", sut_madde=sut, kanit="Mitral darlık ifadesini kontrol edin."))
     else:
-        bulgular.append(Bulgu(
-            kural_id=kural["id"] + "_MITRAL_EKS",
-            seviye="HATA",
-            baslik="1. Mitral Darlık Kontrolü: EKSİK İBARE!",
-            mesaj="Raporda hastada 'orta veya ciddi mitral darlık olmadığı' açıkça belirtilmemiştir! (SUT 4.2.15.D-1 gereği raporda yazması zorunludur).",
-            sut_madde=sut,
-            kanit="Aranan ibare: 'orta-ciddi mitral darlık olmayan / yoktur'"
-        ))
+        bulgular.append(Bulgu(kural_id=kural["id"] + "_MITRAL_EKS", seviye="HATA", baslik="1. Mitral Darlık Kontrolü: EKSİK İBARE!", mesaj="Raporda hastada 'orta veya ciddi mitral darlık olmadığı' açıkça belirtilmemiştir!", sut_madde=sut, kanit="Aranan ibare: 'orta-ciddi mitral darlık olmayan / yoktur'"))
 
-    # --- 2. KONTROL: MEKANİK PROTEZ KAPAĞI OLMADIĞI BELİRTİLMİŞ Mİ? ---
+    # 2. Mekanik Protez Kapak
     kapak_gecti = any(k in metin for k in ("mekanik protez", "mekanik kapak", "protez kapak", "kalp kapagi"))
     kapak_olumsuz = False
     if kapak_gecti:
@@ -611,78 +878,28 @@ def _noak_kurali(kural: dict, rapor: Rapor, recete: Recete | None, havuz: list[I
                     break
 
     if kapak_gecti and kapak_olumsuz:
-        bulgular.append(Bulgu(
-            kural_id=kural["id"] + "_KAPAK_OK",
-            seviye="BILGI",
-            baslik="2. Mekanik Protez Kapak Kontrolü: UYGUN",
-            mesaj="Raporda hastada mekanik protez kapağı olmadığı belirtilmiş.",
-            sut_madde=sut,
-            kanit="Mekanik protez kapak yok"
-        ))
+        bulgular.append(Bulgu(kural_id=kural["id"] + "_KAPAK_OK", seviye="BILGI", baslik="2. Mekanik Protez Kapak Kontrolü: UYGUN", mesaj="Raporda hastada mekanik protez kapağı olmadığı belirtilmiş.", sut_madde=sut, kanit="Mekanik protez kapak yok"))
     elif kapak_gecti and not kapak_olumsuz:
-        bulgular.append(Bulgu(
-            kural_id=kural["id"] + "_KAPAK_VAR",
-            seviye="HATA",
-            baslik="2. Mekanik Protez Kapak Kontrolü: HATA (Protez Kapak Mevcut!)",
-            mesaj="Raporda protez kapak ifadesi var ancak 'olmadığı / yoktur' ibaresi tespit edilemedi! Mekanik protez kapağı olanlarda NOAK ödenmez.",
-            sut_madde=sut,
-            kanit="Mekanik protez kapak ifadesini kontrol edin."
-        ))
+        bulgular.append(Bulgu(kural_id=kural["id"] + "_KAPAK_VAR", seviye="HATA", baslik="2. Mekanik Protez Kapak Kontrolü: HATA (Protez Kapak Mevcut!)", mesaj="Raporda protez kapak ifadesi var ancak 'olmadığı / yoktur' ibaresi tespit edilemedi!", sut_madde=sut, kanit="Mekanik protez kapak ifadesini kontrol edin."))
     else:
-        bulgular.append(Bulgu(
-            kural_id=kural["id"] + "_KAPAK_EKS",
-            seviye="HATA",
-            baslik="2. Mekanik Protez Kapak Kontrolü: EKSİK İBARE!",
-            mesaj="Raporda hastada 'mekanik protez kapağı olmadığı' açıkça belirtilmemiştir! (SUT 4.2.15.D-1 gereği raporda yazması zorunludur).",
-            sut_madde=sut,
-            kanit="Aranan ibare: 'mekanik protez kapağı olmayan / yoktur'"
-        ))
+        bulgular.append(Bulgu(kural_id=kural["id"] + "_KAPAK_EKS", seviye="HATA", baslik="2. Mekanik Protez Kapak Kontrolü: EKSİK İBARE!", mesaj="Raporda hastada 'mekanik protez kapağı olmadığı' açıkça belirtilmemiştir!", sut_madde=sut, kanit="Aranan ibare: 'mekanik protez kapağı olmayan / yoktur'"))
 
-    # --- 3. KONTROL: NON-VALVULER ATRİYAL FİBRİLASYON (NVAF) VEYA DVT/PE TEŞHİSİ ---
+    # 3. Teşhis Kontrolü
     nvaf_var = any(k in metin for k in ("nonvalvuler", "non valvuler", "nvaf", "atriyal fibrilasyon", "atrial fibrilasyon"))
     dvt_pe_var = any(k in metin for k in ("derin ven", "dvt", "pulmoner emboli", "pulmoner tromboemboli")) or any(k.startswith(("I80", "I82", "I26")) for k in kodlar)
 
     if any(k in metin for k in ("nonvalvuler", "non valvuler", "nvaf")):
-        bulgular.append(Bulgu(
-            kural_id=kural["id"] + "_NVAF_OK",
-            seviye="BILGI",
-            baslik="3. Teşhis Kontrolü: Non-Valvuler Atriyal Fibrilasyon (NVAF) Var",
-            mesaj="Raporda Non-Valvuler Atriyal Fibrilasyon (NVAF) tanısı mevcut.",
-            sut_madde=sut,
-            kanit="Non-Valvuler Atriyal Fibrilasyon (NVAF) var"
-        ))
+        bulgular.append(Bulgu(kural_id=kural["id"] + "_NVAF_OK", seviye="BILGI", baslik="3. Teşhis Kontrolü: Non-Valvuler Atriyal Fibrilasyon (NVAF) Var", mesaj="Raporda Non-Valvuler Atriyal Fibrilasyon (NVAF) tanısı mevcut.", sut_madde=sut, kanit="Non-Valvuler Atriyal Fibrilasyon (NVAF) var"))
     elif nvaf_var or any(k.startswith("I48") for k in kodlar):
-        bulgular.append(Bulgu(
-            kural_id=kural["id"] + "_NVAF_UYARI",
-            seviye="UYARI",
-            baslik="3. Teşhis Kontrolü: AF Var Ama 'Non-Valvuler' İbaresi Eksik Olabilir",
-            mesaj="Raporda Atriyal Fibrilasyon (I48) görülüyor ancak 'Non-Valvuler (NVAF)' kelimesi açıkça geçmiyor. Rapor açıklamasında 'Non-Valvuler' yazdığından emin olun.",
-            sut_madde=sut,
-            kanit=f"Tanı kodları: {', '.join(kodlar) if kodlar else 'Yok'}"
-        ))
+        bulgular.append(Bulgu(kural_id=kural["id"] + "_NVAF_UYARI", seviye="UYARI", baslik="3. Teşhis Kontrolü: AF Var Ama 'Non-Valvuler' İbaresi Eksik Olabilir", mesaj="Raporda Atriyal Fibrilasyon (I48) görülüyor ancak 'Non-Valvuler (NVAF)' kelimesi açıkça geçmiyor.", sut_madde=sut, kanit=f"Tanı kodları: {', '.join(kodlar) if kodlar else 'Yok'}"))
     elif dvt_pe_var:
-        bulgular.append(Bulgu(
-            kural_id=kural["id"] + "_DVT_OK",
-            seviye="BILGI",
-            baslik="3. Teşhis Kontrolü: DVT / Pulmoner Embolizm (PE) Tanısı Var",
-            mesaj="Raporda Derin Ven Trombozu (DVT) veya Pulmoner Embolizm (PE) teşhisi mevcut.",
-            sut_madde=sut,
-            kanit="DVT / PE Endikasyonu"
-        ))
+        bulgular.append(Bulgu(kural_id=kural["id"] + "_DVT_OK", seviye="BILGI", baslik="3. Teşhis Kontrolü: DVT / Pulmoner Embolizm (PE) Tanısı Var", mesaj="Raporda Derin Ven Trombozu (DVT) veya Pulmoner Embolizm (PE) teşhisi mevcut.", sut_madde=sut, kanit="DVT / PE Endikasyonu"))
     else:
-        bulgular.append(Bulgu(
-            kural_id=kural["id"] + "_TESHIS_YOK",
-            seviye="HATA",
-            baslik="3. Teşhis Kontrolü: NVAF veya DVT/PE Teşhisi Bulunamadı!",
-            mesaj="Raporda Non-Valvuler Atriyal Fibrilasyon (NVAF) veya DVT/PE teşhisi tespit edilemedi!",
-            sut_madde=sut,
-            kanit="NVAF teşhisi yok"
-        ))
+        bulgular.append(Bulgu(kural_id=kural["id"] + "_TESHIS_YOK", seviye="HATA", baslik="3. Teşhis Kontrolü: NVAF veya DVT/PE Teşhisi Bulunamadı!", mesaj="Raporda Non-Valvuler Atriyal Fibrilasyon (NVAF) veya DVT/PE teşhisi tespit edilemedi!", sut_madde=sut, kanit="NVAF teşhisi yok"))
 
-    # --- 4. KONTROL: RİSK FAKTÖRLERİNDEN EN AZ BİRİ VAR MI? ---
+    # 4. Risk Faktörü Kontrolü
     risk_detaylari = []
     yas = getattr(rapor, "hasta_yasi", None)
-
     if any(x in metin for x in ("inme oykusu", "gecirilmis inme", "iskemik inme", "inme", "svo")):
         risk_detaylari.append("İnme öyküsü raporda belirtilmiş")
     if any(x in metin for x in ("gecici iskemik atak", "gia oykusu", "gia", "tia")):
@@ -707,25 +924,11 @@ def _noak_kurali(kural: dict, rapor: Rapor, recete: Recete | None, havuz: list[I
         risk_detaylari.append("Raporda altta Hipertansiyon (HT) Tanı Kodu da var")
 
     if risk_detaylari:
-        bulgular.append(Bulgu(
-            kural_id=kural["id"] + "_RISK_OK",
-            seviye="BILGI",
-            baslik="4. Risk Faktörü Kontrolü: UYGUN (En Az Bir Risk Faktörü Var)",
-            mesaj="Tespit edilen durumlar: " + " | ".join(risk_detaylari),
-            sut_madde=sut,
-            kanit=risk_detaylari[0]
-        ))
+        bulgular.append(Bulgu(kural_id=kural["id"] + "_RISK_OK", seviye="BILGI", baslik="4. Risk Faktörü Kontrolü: UYGUN (En Az Bir Risk Faktörü Var)", mesaj="Tespit edilen durumlar: " + " | ".join(risk_detaylari), sut_madde=sut, kanit=risk_detaylari[0]))
     elif not dvt_pe_var:
-        bulgular.append(Bulgu(
-            kural_id=kural["id"] + "_RISK_YOK",
-            seviye="HATA",
-            baslik="4. Risk Faktörü Kontrolü: HATA (Hastada Durumlardan Hiçbiri Yok!)",
-            mesaj="Raporda/Hastada aranan risk faktörlerinden (İnme öyküsü, GİA öyküsü, >=75 yaş, NYHA Sınıf 2-3-4 Kalp Yetmezliği, DM veya HT) HİÇBİRİ tespit edilemedi!",
-            sut_madde=sut,
-            kanit="Hastada durumlardan hiçbiri yok"
-        ))
+        bulgular.append(Bulgu(kural_id=kural["id"] + "_RISK_YOK", seviye="HATA", baslik="4. Risk Faktörü Kontrolü: HATA (Hastada Durumlardan Hiçbiri Yok!)", mesaj="Raporda/Hastada aranan risk faktörlerinden (İnme, GİA, >=75 yaş, NYHA 2-3-4, DM veya HT) HİÇBİRİ tespit edilemedi!", sut_madde=sut, kanit="Hastada durumlardan hiçbiri yok"))
 
-    # --- 5. KONTROL: MİNİMUM 2 AYLIK VARFARİN VE 5 ÖLÇÜMÜN 3'ÜNDE INR 2-3 İBARESİ ---
+    # 5. Varfarin / INR
     varfarin_var = any(w in metin for w in ("varfarin", "warfarin", "coumadin", "kumadin"))
     iki_ay_var = bool(re.search(r"\b(2|iki)\s*ay", metin))
     bes_olcum_uc_var = ("5" in metin or "bes" in metin) and ("3" in metin or "uc" in metin)
@@ -733,14 +936,7 @@ def _noak_kurali(kural: dict, rapor: Rapor, recete: Recete | None, havuz: list[I
     svo_istisnasi = varfarin_var and any(x in metin for x in ("serebrovaskuler olay", "svo gecir", "inme gecir"))
 
     if (varfarin_var and iki_ay_var and bes_olcum_uc_var and inr_var) or svo_istisnasi:
-        bulgular.append(Bulgu(
-            kural_id=kural["id"] + "_VARFARIN_OK",
-            seviye="BILGI",
-            baslik="5. Varfarin / INR Yanıtsızlık İbaresi: UYGUN",
-            mesaj="Raporda 'En az 2 aylık varfarin tedavisi sonrası en az 1'er hafta arayla yapılan son 5 ölçümün en az 3'ünde INR değerinin 2-3 arasında tutulamadığı' (veya varfarin altında SVO geçirdiği) yazılı.",
-            sut_madde=sut,
-            kanit="INR sonucuyla ilgili uygun ibare var"
-        ))
+        bulgular.append(Bulgu(kural_id=kural["id"] + "_VARFARIN_OK", seviye="BILGI", baslik="5. Varfarin / INR Yanıtsızlık İbaresi: UYGUN", mesaj="Raporda 'En az 2 aylık varfarin tedavisi sonrası en az 1'er hafta arayla yapılan son 5 ölçümün en az 3'ünde INR değerinin 2-3 arasında tutulamadığı' yazılı.", sut_madde=sut, kanit="INR sonucuyla ilgili uygun ibare var"))
     else:
         eksikler = []
         if not varfarin_var:
@@ -751,57 +947,19 @@ def _noak_kurali(kural: dict, rapor: Rapor, recete: Recete | None, havuz: list[I
             eksikler.append("Son 5 ölçümün en az 3'ünde şartı")
         if not inr_var:
             eksikler.append("INR 2-3 arasında tutulamama şartı")
-        bulgular.append(Bulgu(
-            kural_id=kural["id"] + "_VARFARIN_HATA",
-            seviye="HATA",
-            baslik="5. Varfarin / INR Yanıtsızlık İbaresi: EKSİK VEYA HATALI!",
-            mesaj=(
-                f"Raporda zorunlu Varfarin/INR cümlesinde şu unsurlar eksik: {', '.join(eksikler)}. "
-                "Tam ibare: 'En az 2 ay süre ile varfarin kullanılmasından sonra en az birer hafta ara ile yapılan son 5 ölçümün en az 3'ünde varfarin ile hedeflenen INR değerinin 2-3 arasında tutulamadığı' olmalıdır."
-            ),
-            sut_madde=sut,
-            kanit=f"Eksik: {', '.join(eksikler)}"
-        ))
+        bulgular.append(Bulgu(kural_id=kural["id"] + "_VARFARIN_HATA", seviye="HATA", baslik="5. Varfarin / INR Yanıtsızlık İbaresi: EKSİK VEYA HATALI!", mesaj=f"Raporda zorunlu Varfarin/INR cümlesinde şu unsurlar eksik: {', '.join(eksikler)}.", sut_madde=sut, kanit=f"Eksik: {', '.join(eksikler)}"))
 
-    # --- 6. KONTROL: MG TÜRÜNDEN TEDAVİ ŞEMASI VAR MI? ---
+    # 6. Tedavi Şeması (mg)
     ilac_metinleri = " ".join(i.ad for i in rapor.ilaclar) + " " + (rapor.serbest_metin or "")
     mg_semasi_var = bool(re.search(r"\b\d+(?:[.,]\d+)?\s*(mg|miligram)\b", ilac_metinleri, re.IGNORECASE))
-
     if mg_semasi_var:
-        bulgular.append(Bulgu(
-            kural_id=kural["id"] + "_MG_SEMA_OK",
-            seviye="BILGI",
-            baslik="6. Tedavi Şeması (mg) Kontrolü: UYGUN",
-            mesaj="Raporda (açıklamalarda veya etkin madde bilgileri kısmında) mg cinsinden tedavi şeması var.",
-            sut_madde=sut,
-            kanit="mg cinsinden tedavi şeması var"
-        ))
+        bulgular.append(Bulgu(kural_id=kural["id"] + "_MG_SEMA_OK", seviye="BILGI", baslik="6. Tedavi Şeması (mg) Kontrolü: UYGUN", mesaj="Raporda mg cinsinden tedavi şeması var.", sut_madde=sut, kanit="mg cinsinden tedavi şeması var"))
     else:
-        bulgular.append(Bulgu(
-            kural_id=kural["id"] + "_MG_SEMA_YOK",
-            seviye="UYARI",
-            baslik="6. Tedavi Şeması (mg) Kontrolü: MG DEĞERİ TESPİT EDİLEMEDİ!",
-            mesaj="Raporda (açıklamalarda veya altta etkin madde bilgileri kısmında) ilacın mg türünden tedavi şeması (Örn: 1x20 mg, 2x5 mg vb.) mutlaka yer almalıdır! Lütfen kontrol edin.",
-            sut_madde=sut,
-            kanit="Okunan metinde 'mg' ifadesi bulunamadı."
-        ))
+        bulgular.append(Bulgu(kural_id=kural["id"] + "_MG_SEMA_YOK", seviye="UYARI", baslik="6. Tedavi Şeması (mg) Kontrolü: MG DEĞERİ TESPİT EDİLEMEDİ!", mesaj="Raporda ilacın mg türünden tedavi şeması (Örn: 1x20 mg, 2x5 mg) mutlaka yer almalıdır!", sut_madde=sut, kanit="Okunan metinde 'mg' ifadesi bulunamadı."))
 
-    # --- 7. KONTROL: RAPOR SÜRESİ (MAX 1 YIL) VE SAĞLIK KURULU HEKİM BRANŞLARI ---
-    bulgular.append(Bulgu(
-        kural_id=kural["id"] + "_KURUL_BILGI",
-        seviye="BILGI",
-        baslik="7. Rapor Türü / Max Süre / Hekim Branşı Kontrolü",
-        mesaj=(
-            "1 yıl süreli SAĞLIK KURULU RAPORU (en az birinin Kardiyoloji veya Nöroloji uzmanı olması koşuluyla; "
-            "Kardiyoloji, İç Hastalıkları, Göğüs Hastalıkları, KDC, Girişimsel Radyoloji, Beyin ve Sinir Cerrahisi ve Nöroloji uzmanlarından en az 3'ünün bulunduğu) "
-            "veya ilk iki rapor süresi (toplam 24 ay) sonunda ilgili uzman hekim raporu olmalıdır."
-        ),
-        sut_madde=sut,
-        kanit=f"Tetikleyen ürün: {etiket}"
-    ))
-
+    # 7. Kurul Bilgisi
+    bulgular.append(Bulgu(kural_id=kural["id"] + "_KURUL_BILGI", seviye="BILGI", baslik="7. Rapor Türü / Max Süre / Hekim Branşı Kontrolü", mesaj="1 yıl süreli SAĞLIK KURULU RAPORU (en az birinin Kardiyoloji veya Nöroloji uzmanı olması koşuluyla 3 uzman hekim) veya 24 ay sonunda ilgili uzman hekim raporu olmalıdır.", sut_madde=sut, kanit=f"Tetikleyen ürün: {etiket}"))
     return bulgular
-
 
 
 def calistir(rapor: Rapor, recete: Recete | None, ks: KuralSeti) -> Sonuc:
@@ -815,6 +973,9 @@ def calistir(rapor: Rapor, recete: Recete | None, ks: KuralSeti) -> Sonuc:
     for kural in ks.kurallar:
         tip = kural.get("tip")
 
+        if tip == "doksazosin_kontrolu":
+            bulgular += _doksazosin_kurali(kural, rapor, recete, havuz)
+            continue
         if tip == "kapsam_kontrolu":
             bulgular += _kapsam_kurali(kural, rapor, recete)
             continue
@@ -841,7 +1002,7 @@ def calistir(rapor: Rapor, recete: Recete | None, ks: KuralSeti) -> Sonuc:
             bulgular += _raporsuz_yasakli_urun_kurali(kural, recete)
             continue
         if tip == "tani_kodu_ibare_kontrolu":
-            bulgular += _tani_kodu_ibare_kurali(kural, rapor, recete, havuz)
+            bulgular += _tani_kodu_ibare_kurali(kural, ks, rapor, recete, havuz)
             continue
         if tip == "brans_kontrolu":
             bulgular += _brans_kurali(kural, rapor, recete, havuz)
@@ -854,6 +1015,15 @@ def calistir(rapor: Rapor, recete: Recete | None, ks: KuralSeti) -> Sonuc:
             continue
         if tip == "rapor_suresi_kontrolu":
             bulgular += _rapor_suresi_kurali(kural, rapor, recete, havuz)
+            continue
+        if tip == "rapor_yetki_sure_kontrolu":
+            bulgular += _rapor_yetki_sure_kurali(kural, rapor, recete, havuz)
+            continue
+        if tip == "etken_madde_birliktelik_kontrolu":
+            bulgular += _etken_madde_birliktelik_kurali(kural, rapor, recete, havuz)
+            continue
+        if tip == "rapor_kodu_bilgi_notu":
+            bulgular += _rapor_kodu_bilgi_kurali(kural, rapor, recete, havuz)
             continue
         if tip == "raporsuz_klopidogrel_kontrolu":
             bulgular += _raporsuz_klopidogrel_kurali(kural, recete)

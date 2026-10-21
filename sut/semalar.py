@@ -45,8 +45,8 @@ class Rapor(BaseModel):
 
     # Raporun serbest metin alanlarının tamamı. Aranan ibareler burada olur.
     serbest_metin: str = ""
-    
-# --- YENİ EKLENEN STATİN / LDL ALANLARI ---
+
+    # --- STATİN / LDL / OSTEOPOROZ / PROSTAT ALANLARI ---
     idame_mi: bool = False
     ldl_degeri: float | None = None
     ldl_tarihi: date | None = None
@@ -55,12 +55,14 @@ class Rapor(BaseModel):
     risk_faktorleri: list[str] = Field(default_factory=list)
     t_skoru: float | None = None
     hasta_yasi: int | None = None
+    hipertansiyon_eslik_ediyor: bool | None = None
 
 
 class Recete(BaseModel):
     recete_no: str | None = None
     tarih: date | None = None
     hekim_bransi: str | None = None
+    tani_kodlari: list[str] = Field(default_factory=list)
     ilaclar: list[Ilac] = Field(default_factory=list)
     rapor_var: bool = True                 # False: raporsuz reçete
     aciklama: str = ""                     # reçete açıklaması (ibare buradan aranır)
