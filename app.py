@@ -228,8 +228,8 @@ def ekrani_temizle():
     st.session_state.clear()
     st.session_state["uploader_sayac"] = yeni_sayac
     for alan in [
-        "r_tani_alan", "r_brans_alan", "r_ilaclar_alan", "r_metin_alan",
-        "rec_brans_alan", "rec_tani_alan", "rec_ilaclar_alan", "rec_aciklama_alan"
+        "r_rapor_kodu_alan", "r_tani_alan", "r_brans_alan", "r_ilaclar_alan", "r_metin_alan",
+        "rec_brans_alan", "rec_tani_alan", "rec_ilaclar_alan", "rec_aciklama_alan",
     ]:
         st.session_state[alan] = ""
     st.session_state["r_bas_alan"] = date.today()
@@ -261,6 +261,7 @@ for _anahtar, _deger in {
     "r_no": "",
     "r_bas_alan": date.today(),
     "r_bit_alan": date.today(),
+    "r_rapor_kodu_alan": "",
     "r_tani_alan": "",
     "r_brans_alan": "",
     "r_ilaclar_alan": "",
@@ -366,7 +367,7 @@ if aktif_sayfa == "ℹ️ Nasıl çalışır?":
         <div class="howto-title">📸 Rapor veya Reçete Fotoğrafını Yükleyin (veya Elle Girin)</div>
         <p class="howto-text">
             <strong>Rapor Bilgileri</strong> bölümünden Medula rapor ekranının fotoğrafını (uzun raporlarda birden fazla fotoğraf seçebilirsiniz) yükleyip <strong>"Fotoğrafları oku"</strong> butonuna basın.<br>
-            • Yapay zeka; <strong>Düzenleme ve Bitiş Tarihlerini, ICD-10 Tanı Kodlarını, Hekim Branşlarını, İlaçları, Rapor Açıklama Metnini, LDL değerlerini/tarihlerini ve DEXA T-Skorunu</strong> fotoğraftan otomatik olarak okuyup ilgili kutucuklara yerleştirir.<br>
+            • Yapay zeka; <strong>Düzenleme ve Bitiş Tarihlerini, Üst Rapor Kodunu (04.05, 20.00 vb.), Alt ICD-10 Tanı Kodlarını (I10, E11.9 vb.), Hekim Branşlarını, İlaçları, Rapor Açıklama Metnini, LDL değerlerini/tarihlerini ve DEXA T-Skorunu</strong> fotoğraftan otomatik olarak okuyup ilgili kutucuklara yerleştirir.<br>
             • Fotoğraf yüklemek istemiyorsanız, bilgileri doğrudan kutucuklara ve <em>"Rapor İlaçları ve Serbest Metni Düzenle"</em> çekmecesine kendiniz de yazabilirsiniz.
         </p>
     </div>
@@ -390,7 +391,7 @@ if aktif_sayfa == "ℹ️ Nasıl çalışır?":
         <p class="howto-text">
             Bilgileri belgeyle karşılaştırdıktan sonra alttaki mavi <strong>"🔍 Kontrol et"</strong> butonuna tıklayın. Kural motoru tüm SUT kriterlerini tarar ve sonuçları önem sırasına göre renklendirerek listeler:<br>
             • <strong style="color:#d32f2f;">🔴 HATA (Kesinti Riski):</strong> Zorunlu rapor ibaresi eksikliği, tanı kodu uyumsuzluğu, rapor süresi aşımı (örn. Klopidogrel/NOAK > 12 ay, Finasterid/Dutasterid > 6 ay), uygunsuz hekim branşı veya yasaklı ilaç kombinasyonu (örn. ASA intoleransı varken Coraspin/Klogel-A verilmesi).<br>
-            • <strong style="color:#f57c00;">🟠 UYARI (Manuel Teyit):</strong> Aile hekimi 24 ay kullanım şartı, DMAH IU/mg doz şeması kontrolü, eksik tarih veya Medula ilaç geçmişinden kontrol edilmesi gereken durumlar.<br>
+            • <strong style="color:#f57c00;">🟠 UYARI (Manuel Teyit):</strong> Rapor kodu (örn. 04.05) ile alt ICD-10 tanı kodu (örn. I10) uyumsuzluğu, aile hekimi 24 ay kullanım şartı, DMAH IU/mg doz şeması kontrolü veya Medula ilaç geçmişinden kontrol edilmesi gereken durumlar.<br>
             • <strong style="color:#003c71;">🔵 BİLGİ (Uygun):</strong> Aranan SUT şartlarının (örn. NOAK 7 maddelik kontrol listesi, LDL/T-skoru eşiği, Medula uyarı kodları) sağlandığını gösteren onay kartları.
         </p>
     </div>
@@ -443,6 +444,7 @@ else:
                 with st.spinner("Yapay zeka raporu okuyor ve parametreleri işliyor..."):
                     try:
                         tum_metin = ""
+                        tum_rapor_kodlari = []
                         tum_tanilar = []
                         tum_ilaclar = []
                         
@@ -450,6 +452,8 @@ else:
                             ham = rapor_oku_onbellekli(foto.getvalue())
                             if ham.get("serbest_metin"):
                                 tum_metin += ham.get("serbest_metin") + "\n\n--- DİĞER RAPOR ---\n\n"
+                            if ham.get("rapor_kodlari"):
+                                tum_rapor_kodlari.extend(ham.get("rapor_kodlari"))
                             if ham.get("tani_kodlari"):
                                 tum_tanilar.extend(ham.get("tani_kodlari"))
                             if ham.get("ilaclar"):
@@ -501,12 +505,23 @@ else:
                             if ham.get("hekim_branslari"):
                                 st.session_state["r_brans_alan"] = ", ".join(ham.get("hekim_branslari"))
 
-                        if tum_tanilar:
-                            st.session_state["r_tani_alan"] = ", ".join(list(dict.fromkeys(tum_tanilar)))
+                        # Eğer model tanı_kodlari içine 04.05 gibi rakamla başlayan rapor kodu koyduysa otomatik ayır
+                        temiz_icd_tanilar = []
+                        for tk in tum_tanilar:
+                            tk_str = str(tk).strip()
+                            if tk_str and tk_str[0].isdigit():
+                                tum_rapor_kodlari.append(tk_str)
+                            elif tk_str:
+                                temiz_icd_tanilar.append(tk_str)
+
+                        if tum_rapor_kodlari:
+                            st.session_state["r_rapor_kodu_alan"] = ", ".join(list(dict.fromkeys(tum_rapor_kodlari)))
+                        if temiz_icd_tanilar:
+                            st.session_state["r_tani_alan"] = ", ".join(list(dict.fromkeys(temiz_icd_tanilar)))
                         st.session_state["r_ilaclar_alan"] = "\n".join(list(dict.fromkeys(tum_ilaclar)))
                         st.session_state["r_metin_alan"] = tum_metin.strip()
                         st.session_state["rapor_foto_okundu"] = True
-                        st.success("Tüm fotoğraflar okundu; tanı, LDL, T-Skoru ve tarihler otomatik işlendi!")
+                        st.success("Tüm fotoğraflar okundu; Rapor kodu, ICD-10 tanı, LDL, T-Skoru ve tarihler otomatik işlendi!")
                     except Exception as e:
                         st.error(f"Fotoğraf okunamadı: {e}")
 
@@ -515,9 +530,20 @@ else:
             c1, c2 = st.columns(2)
             r_bas = c1.date_input("Düzenleme tarihi", key="r_bas_alan", format="DD.MM.YYYY")
             r_bit = c2.date_input("Bitiş tarihi", key="r_bit_alan", format="DD.MM.YYYY")
-            r_tani = st.text_input("Rapor Tanı Kodları (ICD-10, virgülle ayırın)", key="r_tani_alan", placeholder="Örn. N40, I48, O22.0, Z34.9")
-            r_brans = st.text_input("Rapor Hekim Branşları (virgülle ayırın)", key="r_brans_alan", placeholder="Örn. Üroloji, Kardiyoloji, Kadın Hastalıkları ve Doğum")
             
+            k1, k2 = st.columns([1, 1.4])
+            r_rapor_kodu = k1.text_input(
+                "Rapor Kodu (Üst Başlık)", 
+                key="r_rapor_kodu_alan", 
+                placeholder="Örn. 04.05, 04.02, 20.00"
+            )
+            r_tani = k2.text_input(
+                "Alt Tanı Kodları (ICD-10)", 
+                key="r_tani_alan", 
+                placeholder="Örn. I10, I48, E11.9, N40"
+            )
+            r_brans = st.text_input("Rapor Hekim Branşları (virgülle ayırın)", key="r_brans_alan", placeholder="Örn. Üroloji, Kardiyoloji, İç Hastalıkları")
+
         # 3. ÇEKMECE: RAPOR İLAÇLARI VE SERBEST METİN
         with st.expander("📝 Rapor İlaçları ve Serbest Metni Düzenle", expanded=False):
             st.caption("Yapay zeka bu alanları fotoğraftan otomatik doldurur. Manuel müdahale için burayı kullanabilirsiniz.")
@@ -702,14 +728,22 @@ else:
 
         raporsuz = bool(rec_var and rapor_yok)
 
+        rapor_kodu_list = virgullu_liste(r_rapor_kodu)
         rapor_tani_list = virgullu_liste(r_tani)
         recete_tani_list = virgullu_liste(rec_tani) if rec_var else []
+
+        # Kullanıcı tanı kutusuna 04.05, 20.00 gibi rakamla başlayan rapor kodu yazdıysa otomatik rapor_kodlari'na da al
+        for kod in rapor_tani_list:
+            if kod and kod[0].isdigit() and kod not in rapor_kodu_list:
+                rapor_kodu_list.append(kod)
+
         birlesik_tanilar = list(dict.fromkeys(rapor_tani_list + recete_tani_list))
 
         rapor = Rapor(
             rapor_no=st.session_state.get("r_no") or None,
             duzenleme_tarihi=None if raporsuz else r_bas,
             bitis_tarihi=None if raporsuz else r_bit,
+            rapor_kodlari=[] if raporsuz else rapor_kodu_list,
             tani_kodlari=recete_tani_list if raporsuz else birlesik_tanilar,
             hekim_branslari=virgullu_liste(r_brans),
             ilaclar=[] if raporsuz else ilac_listesi(r_ilaclar),

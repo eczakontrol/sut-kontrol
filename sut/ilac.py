@@ -232,15 +232,26 @@ def maddeleri_bul(metin: str) -> dict[str, str]:
     bulunan: dict[str, str] = {}
     if not norm:
         return bulunan
+
+    barkodlar = katalog.barkodlari_bul(metin)
+    kamu_kodlari = katalog.kamu_kodlarini_bul(metin)
+    katalogla_eslesen_kimlik_var = any(
+        (barkod and katalog.bul(barkod) is not None) for barkod in barkodlar
+    ) or any(
+        (kkod and katalog.kamu_kodu_ile_bul(kkod) is not None) for kkod in kamu_kodlari
+    )
+    if (barkodlar or kamu_kodlari) and not katalogla_eslesen_kimlik_var:
+        return bulunan
+
     for marka, icerik in MARKALAR.items():
         marka_norm = normalize(marka.replace("-", " "))
         if re.search(rf"\b{re.escape(marka_norm)}\b", norm):
             norm += " " + normalize(icerik)
-    for barkod in katalog.barkodlari_bul(metin):
+    for barkod in barkodlar:
         kayit = katalog.bul(barkod)
         if kayit and kayit.get("e"):
             norm += " " + normalize(kayit["e"])
-    for kkod in katalog.kamu_kodlarini_bul(metin):
+    for kkod in kamu_kodlari:
         kayit = katalog.kamu_kodu_ile_bul(kkod)
         if kayit and kayit.get("e"):
             norm += " " + normalize(kayit["e"])

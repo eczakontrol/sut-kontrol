@@ -33,13 +33,18 @@ Görüntüdeki bilgileri aşağıdaki JSON şemasına göre çıkar.
 SADECE net şekilde okuyabildiğin bilgileri yaz. Emin olmadığın veya
 görünmeyen her alana null yaz. ASLA TAHMİN ETME, ASLA UYDURMA.
 
+ÇOK ÖNEMLİ AYRIM (RAPOR KODU vs ICD-10 TANI KODU):
+- "rapor_kodlari": Sadece RAKAM ve noktadan oluşan SGK Rapor/Teşhis kodlarını buraya yaz (Örn: "04.05", "04.02", "04.04.1", "07.02.1", "20.00", "20.02" vb.).
+- "tani_kodlari": Sadece HARF ile başlayan ICD-10 alt tanı kodlarını buraya yaz (Örn: "I10", "I48", "E11.9", "N40", "E78.0", "M81.0", "O22.0" vb.).
+
 Şema:
 {
   "rapor_no": string veya null,
   "duzenleme_tarihi": raporun düzenlenme/başlangıç tarihi, "YYYY-MM-DD" formatında string veya null,
   "bitis_tarihi": raporun bitiş/geçerlilik süresi sonu, "YYYY-MM-DD" formatında string veya null,
   "rapor_tipi": "uzman hekim" veya "sağlık kurulu" veya null,
-  "tani_kodlari": ["Raporda 'Tanı Bilgileri' veya 'ICD-10' kısmında yazan tüm tanı kodlarını (Örn: N40, E78.0, I10, I48, M81.0, E11.9 gibi harf ve rakamdan oluşan kodları veya 20.00, 04.05 gibi rapor kodlarını) eksiksiz bul ve liste olarak yaz."],
+  "rapor_kodlari": ["Raporda 'Tanı Bilgileri' kısmında başlıkta yazan 04.05, 04.02, 07.02.1, 20.00 gibi rakamdan oluşan SGK rapor kodlarının listesi, yoksa []"],
+  "tani_kodlari": ["Raporda başlığın altında yazan I10, E11.9, N40, I48, E78.0, M81.0 gibi harfle başlayan tüm ICD-10 tanı kodlarının listesi, yoksa []"],
   "hekim_branslari": rapordaki hekim branşlarının listesi, yoksa boş liste [],
   "ilaclar": [{"ad": string, "adet": sayı veya null}, ...], yoksa boş liste [],
   "serbest_metin": raporun tüm serbest metin / açıklama / not alanlarının BİREBİR kopyası,

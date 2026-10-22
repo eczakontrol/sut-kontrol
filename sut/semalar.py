@@ -39,7 +39,8 @@ class Rapor(BaseModel):
     duzenleme_tarihi: date | None = None
     bitis_tarihi: date | None = None
     rapor_tipi: str | None = None          # "uzman hekim" / "sağlık kurulu"
-    tani_kodlari: list[str] = Field(default_factory=list)
+    rapor_kodlari: list[str] = Field(default_factory=list)  # Örn: ["04.05", "20.00"] (SGK EK-4/D Rapor Kodu)
+    tani_kodlari: list[str] = Field(default_factory=list)   # Örn: ["I10", "E11.9", "N40"] (ICD-10 Alt Tanı Kodu)
     hekim_branslari: list[str] = Field(default_factory=list)
     ilaclar: list[Ilac] = Field(default_factory=list)
 

@@ -714,6 +714,18 @@ def _etken_madde_birliktelik_kurali(kural: dict, rapor: Rapor, recete: Recete | 
     return bulgular
 
 
+# Yaygın SGK Rapor Kodları ve altında beklenen ICD-10 önekleri
+RAPOR_KODU_ICD_UYUMU: dict[str, tuple[str, tuple[str, ...]]] = {
+    "04.05": ("Arteriyel Hipertansiyon", ("I10", "I11", "I12", "I13", "I15")),
+    "04.02": ("Koroner Arter Hastalığı", ("I20", "I21", "I22", "I24", "I25", "Z95")),
+    "04.01": ("Kalp Yetmezliği", ("I50", "I11.0", "I13.0", "I42")),
+    "04.04": ("Periferik ve Serebral Damar Hastalıkları", ("I63", "I64", "I65", "I66", "I67", "I69", "I70", "I73", "G45")),
+    "04.08": ("Herediter / Kazanılmış Faktör Eksiklikleri / Tromboz", ("I26", "I80", "I82", "D68", "O22", "Z34", "Z35")),
+    "07.02.1": ("Diabetes Mellitus", ("E10", "E11", "E12", "E13", "E14")),
+    "08.01": ("Lipid Metabolizması Bozuklukları", ("E78",)),
+}
+
+
 def _rapor_kodu_bilgi_kurali(kural: dict, rapor: Rapor, recete: Recete | None, havuz: list[Ilac]) -> list[Bulgu]:
     raporsuz = recete is not None and not recete.rapor_var
     if kural.get("yalniz_raporlu", True) and raporsuz:
@@ -721,14 +733,60 @@ def _rapor_kodu_bilgi_kurali(kural: dict, rapor: Rapor, recete: Recete | None, h
     tetikleyen = [e for e, s in _gruplar(havuz, kural.get("kapsam", "tumu")) if _tetiklendi_mi(kural.get("tetikleyici", {}), s)]
     if not tetikleyen:
         return []
+
+    girilen_rkodlar = [k.strip() for k in (getattr(rapor, "rapor_kodlari", None) or []) if k.strip()]
+    beklenen_rkodlar = [str(k).strip() for k in kural.get("yaygin_rapor_kodlari", [])]
+
+    if beklenen_rkodlar and girilen_rkodlar:
+        if any(any(g.startswith(b) for b in beklenen_rkodlar) for g in girilen_rkodlar):
+            return [Bulgu(
+                kural_id=kural["id"] + "_OK",
+                seviye="BILGI",
+                baslik=kural.get("baslik", "Rapor Kodu Doğrulandı"),
+                mesaj=f"Rapor kodu ({', '.join(girilen_rkodlar)}) uyumlu.",
+                sut_madde=kural.get("sut_madde"),
+                kanit=f"Rapor Kodu: {', '.join(girilen_rkodlar)} · Ürün: {', '.join(tetikleyen)}"
+            )]
+
     return [Bulgu(
         kural_id=kural["id"],
         seviye=kural.get("seviye", "BILGI"),
         baslik=kural.get("baslik", "Rapor Kodu Bilgilendirmesi"),
         mesaj=kural.get("mesaj", "").strip(),
         sut_madde=kural.get("sut_madde"),
-        kanit=f"Tetikleyen: {', '.join(tetikleyen)}"
+        kanit=f"Mevcut Rapor Kodu: {', '.join(girilen_rkodlar) if girilen_rkodlar else 'Belirtilmedi'} · Tetikleyen: {', '.join(tetikleyen)}"
     )]
+
+
+def _rapor_kodu_icd_uyum_kontrolu(rapor: Rapor, recete: Recete | None) -> list[Bulgu]:
+    """Raporda üst başlık olarak girilen Rapor Kodu (örn. 04.05) ile altındaki ICD-10
+    tanı kodlarının (örn. I10) birbiriyle örtüşüp örtüşmediğini otomatik denetler."""
+    if recete is not None and not recete.rapor_var:
+        return []
+    rkodlar = [k.strip() for k in (getattr(rapor, "rapor_kodlari", None) or []) if k.strip()]
+    icd_kodlar = [k.strip().upper() for k in (rapor.tani_kodlari or []) if k.strip() and not k.strip()[0].isdigit()]
+    if not rkodlar or not icd_kodlar:
+        return []
+
+    bulgular: list[Bulgu] = []
+    for rkod in rkodlar:
+        for anahtar, (ad, beklenen_icdler) in RAPOR_KODU_ICD_UYUMU.items():
+            if rkod.startswith(anahtar):
+                eslesen_icd = [i for i in icd_kodlar if i.startswith(beklenen_icdler)]
+                if not eslesen_icd:
+                    bulgular.append(Bulgu(
+                        kural_id=f"RAPOR_ICD_UYUMSUZ_{anahtar}",
+                        seviye="UYARI",
+                        baslik=f"Rapor Kodu ({rkod}) ile Alt ICD-10 Tanı Kodu Uyumsuzluğu!",
+                        mesaj=(
+                            f"Raporda '{rkod} - {ad}' rapor kodu yer alıyor ancak bu rapor kodunun altında beklenen "
+                            f"ICD-10 tanı kodlarından ({', '.join(beklenen_icdler)}...) hiçbiri tespit edilemedi! "
+                            "Medula'da üst rapor kodu ile alt ICD-10 kodunun uyumlu olduğundan emin olun."
+                        ),
+                        sut_madde="SGK Medula Rapor/ICD-10 Kontrolü",
+                        kanit=f"Rapor Kodu: {rkod} · Rapordaki ICD-10 Kodları: {', '.join(icd_kodlar)}"
+                    ))
+    return bulgular
 
 
 def _yasakli_ibare_kurali(kural: dict, rapor: Rapor, recete: Recete | None, havuz: list[Ilac]) -> list[Bulgu]:
@@ -969,6 +1027,9 @@ def calistir(rapor: Rapor, recete: Recete | None, ks: KuralSeti) -> Sonuc:
 
     rapor_yok = recete is not None and not recete.rapor_var
     bulgular: list[Bulgu] = []
+
+    if ks.kurallar and ks.kurallar[0].get("id", "").startswith("KAPSAM"):
+        bulgular += _rapor_kodu_icd_uyum_kontrolu(rapor, recete)
 
     for kural in ks.kurallar:
         tip = kural.get("tip")
