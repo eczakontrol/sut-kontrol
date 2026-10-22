@@ -1,0 +1,111 @@
+surum: "2026-10-21"
+kaynak: "SUT 13.3 ve 13.4 - Prostat (BPH) ve Doksazosin Kuralları"
+
+ayarlar:
+  receteyi_de_degerlendir: true
+
+kurallar:
+  # 1. DOKSAZOSİN (CARDURA) ÖZEL KURALI: TANSİYON (I10) vs PROSTAT (N40) UYARI KODU AYRIMI
+  - id: DOKSAZOSIN_ENDIKASYON_UYARI_KODU
+    tip: doksazosin_kontrolu
+    sut_madde: "SUT 13.3 / EK-4/A"
+
+  # 2. BPH ENDİKASYONUNDA N40 TANI KODU KONTROLÜ
+  - id: BPH_N40_TANI
+    tip: tani_kodu_kontrolu
+    kapsam: urun
+    baslik: "BPH Endikasyonunda N40 Tanı Kodu Kontrolü"
+    sut_madde: "SUT 13.3 / 13.4"
+    seviye: HATA
+    tetikleyici:
+      herhangi_bulunmali: [BPH_ALFA_BLOKER, BPH_5ARI]
+    zorunlu_kodlar: [N40]
+    raporlu_tani_kaynagi: rapor
+    raporsuz_tani_kaynagi: recete
+    mesaj_yok: >-
+      Prostat (BPH) ilaçlarında N40 (Benign Prostat Hiperplazisi) tanı kodu bulunamadı! Raporlu işlemde raporun, raporsuz işlemde reçetenin tanılarını kontrol edin. (Not: İlaç Doksazosin/Cardura ise ve Hipertansiyon için yazıldıysa I10-I15 tanı kodu girilmelidir).
+    mesaj_var: "BPH için N40 tanı kodu doğrulandı. Medula'da BPH uyarı kodu seçilmelidir."
+
+  # 3. ALFA BLOKERLERDE ÜROLOJİ UZMANI YETKİSİ
+  - id: BPH_ALFA_BRANS
+    tip: brans_kontrolu
+    kapsam: urun
+    baslik: "Alfa Blokerlerde Üroloji Uzmanı Yetkisi"
+    sut_madde: "SUT 13.3"
+    seviye: HATA
+    tetikleyici:
+      herhangi_bulunmali: [BPH_ALFA_BLOKER]
+    izinli_branslar: [uroloji, üroloji]
+    mesaj_yok: >-
+      Alfuzosin, tamsulosin, terazosin, doksazosin veya silodosin BPH (N40) endikasyonunda raporsuz yalnızca Üroloji uzman hekimince reçete edilir. Raporlu işlemde raporu düzenleyen hekimin Üroloji uzmanı olması gerekir; bu rapora dayanarak tüm hekimler reçete edebilir.
+
+  # 4. ALFA BLOKERLER İÇİN 1 YILLIK (12 AY) RAPOR SÜRESİ
+  - id: BPH_ALFA_RAPOR_SURE
+    tip: rapor_yetki_sure_kontrolu
+    kapsam: urun
+    baslik: "Alfa Blokerler İçin Maksimum 1 Yıllık (12 Ay) Rapor Süresi"
+    sut_madde: "SUT 13.3"
+    seviye: HATA
+    tetikleyici:
+      herhangi_bulunmali: [BPH_ALFA_BLOKER]
+    yalniz_raporlu: true
+    azami_sure_ay: 12
+    recete_tarihi_rapor_araliginda_olmali: true
+    mesaj_yok: >-
+      Alfa blokerler için Üroloji uzmanının düzenlediği en fazla 1 yıl (12 ay) süreli uzman hekim raporu şartı sağlanmıyor veya reçete tarihi raporun geçerli aralığında değil.
+
+  # 5. BİRDEN FAZLA ALFA BLOKERİN BİRLİKTE KULLANILMASI (Doksazosin HT İstisnası İle)
+  - id: BPH_ALFA_BIRLIKTELIK
+    tip: etken_madde_birliktelik_kontrolu
+    kapsam: belge_ayri
+    baslik: "Birden Fazla Alfa Blokerin Birlikte Kullanılması"
+    sut_madde: "SUT 13.3"
+    seviye: HATA
+    etken_maddeler: [alfuzosin, tamsulosin, terazosin, doksazosin, silodosin]
+    azami_farkli_etken_madde: 1
+    mesaj: >-
+      BPH endikasyonunda birden fazla alfa bloker birlikte kullanılmış! SUT 13.3'e göre kombine kullanımda bedelleri karşılanmaz (Ancak Doksazosin/Cardura eşlik eden Hipertansiyon tanısıyla kullanılıyorsa bu kısıtlama uygulanmaz).
+    mesaj_istisna: >-
+      Reçete/Raporda Hipertansiyon tanı kodu (I10-I15) ve Doksazosin (Cardura) mevcut: SUT 13.3 gereği Hipertansiyonun eşlik ettiği BPH'de alfa bloker kombinasyon yasağı uygulanmaz.
+
+  # 6. FİNASTERİD VE DUTASTERİDDE ÜROLOJİ UZMANI YETKİSİ
+  - id: BPH_5ARI_BRANS
+    tip: brans_kontrolu
+    kapsam: urun
+    baslik: "Finasterid ve Dutasteridde Üroloji Uzmanı Yetkisi"
+    sut_madde: "SUT 13.4"
+    seviye: HATA
+    tetikleyici:
+      herhangi_bulunmali: [BPH_5ARI]
+    izinli_branslar: [uroloji, üroloji]
+    mesaj_yok: >-
+      Finasterid (Proscar) veya Dutasterid (Avodart, Duodart), raporsuz yalnızca Üroloji uzman hekimince reçete edilir. Raporlu işlemde raporu düzenleyen hekimin Üroloji uzmanı olması gerekir; bu rapora dayanarak tüm hekimler reçete edebilir.
+
+  # 7. FİNASTERİD / DUTASTERİD İÇİN 6 AYLIK RAPOR SÜRESİ
+  - id: BPH_5ARI_RAPOR_SURE
+    tip: rapor_yetki_sure_kontrolu
+    kapsam: urun
+    baslik: "Finasterid / Dutasterid İçin Maksimum 6 Aylık Rapor Süresi"
+    sut_madde: "SUT 13.4"
+    seviye: HATA
+    tetikleyici:
+      herhangi_bulunmali: [BPH_5ARI]
+    yalniz_raporlu: true
+    azami_sure_ay: 6
+    recete_tarihi_rapor_araliginda_olmali: true
+    mesaj_yok: >-
+      Finasterid/Dutasterid (tamsulosin kombinasyonları olan Duodart vb. dahil) için Üroloji uzmanının düzenlediği en fazla 6 ay süreli uzman hekim raporu şartı sağlanmıyor! (6 aydan uzun süreli raporlar kesinti sebebidir).
+
+  # 8. FİNASTERİD VE DUTASTERİDİN BİRLİKTE KULLANILMASI YASAĞI
+  - id: BPH_5ARI_BIRLIKTELIK
+    tip: etken_madde_birliktelik_kontrolu
+    kapsam: belge_ayri
+    baslik: "Finasterid ve Dutasteridin Birlikte Kullanılması Yasağı"
+    sut_madde: "SUT 13.4"
+    seviye: HATA
+    etken_maddeler: [finasterid, dutasterid]
+    azami_farkli_etken_madde: 1
+    hipertansiyon_istisnasi_yok: true
+    mesaj: >-
+      Finasterid ve Dutasterid (kombinasyon ürünleri dahil) birlikte tespit edildi! SUT 13.4'e göre kombine kullanımlarında bedelleri kesinlikle karşılanmaz.
+      

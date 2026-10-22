@@ -1,0 +1,18 @@
+surum: "2026-10-18b"
+kaynak: "SUT 4.2.17.A - Osteoporoz İlaçları"
+
+ayarlar:
+  receteyi_de_degerlendir: true
+
+kurallar:
+  - id: OSTEOPOROZ_T_SKORU_KURALI
+    tip: osteoporoz_kontrolu
+    sut_madde: "SUT 4.2.17.A"
+    tetikleyici:
+      herhangi_bulunmali: [BISFOSFONAT, DENOSUMAB, ALENDRONAT, RISEDRONAT, IBANDRONAT, FOSAMAX, ACTONEL, BONVIVA, PROLIA]
+    aciklama: |
+      1. 75 yaş ve üzeri hastalarda veya patolojik kalça kırığı olanlarda T-Skoru şartı aranmaz.
+      2. Patolojik kırığı olanlarda T-Skoru en az -1.0 olmalıdır.
+      3. 65 yaş ve üzeri kırığı olmayanlarda T-Skoru en az -2.5 olmalıdır.
+      4. 65 yaş altı kırığı olmayanlarda T-Skoru en az -3.0 olmalıdır.
+      5. Rapor süresi maksimum 2 yıldır. Kombine kullanımlarda sadece birinin bedeli ödenir.

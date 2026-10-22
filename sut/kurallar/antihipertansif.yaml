@@ -1,0 +1,164 @@
+# ACE inhibitörü / ARB kural seti
+#
+# Yeni kural eklemek için bu dosyaya satır eklemeniz yeterli, Python
+# dosyalarına dokunmanız gerekmez.
+#
+# ÖNEMLİ: sut_madde alanlarını kendi indirdiğiniz SUT nüshasından
+# doldurun. Aşağıda DOLDURULACAK yazan yerler kasıtlı boş bırakıldı --
+# uydurulmuş bir madde numarası, hiç madde numarası olmamasından kötüdür.
+
+surum: "2026-09-19b"
+kaynak: "Sağlık Uygulama Tebliği, antihipertansif ilaçlar"
+
+ayarlar:
+  receteyi_de_degerlendir: true
+
+
+# Her kuralın "kapsam" alanı neye bakılacağını belirler:
+#   urun  -> her ilaç ürünü (kutu) tek tek değerlendirilir.
+#            ARB ve KKB ancak AYNI üründeyse birlikte sayılır.
+#   tumu  -> rapordaki ve reçetedeki tüm ilaçlar tek havuz sayılır.
+# Belirtilmezse "urun" kabul edilir.
+
+
+ibareler:
+  monoterapi_yetersiz:
+    baslik: "Monoterapi yetersizliği ibaresi"
+    esik: 0.85          # OCR toleransı: 1.0 = birebir, 0.85 = birkaç harf hatası affedilir
+    kaliplar:
+      - "monoterapi ile kan basıncı kontrol altına alınamamıştır"
+      - "monoterapiyle kan basıncı kontrol altına alınamamıştır"
+      - "monoterapi ile kan basıncı kontrol altına alınamadı"
+      - "monoterapi ile kan basıncı kontrolü sağlanamamıştır"
+      - "tek ilaç ile kan basıncı kontrol altına alınamamıştır"
+      - "monoterapi ile yeterli kan basıncı kontrolü sağlanamamıştır"
+      - "hastanın monoterapi ile kan basıncının yeterli oranda kontrol altına alınmadığı"
+      - "monoterapi ile kan basıncının yeterli oranda kontrol altına alınamadığı"
+      - "monoterapi ile kan basıncı yeterli oranda kontrol altına alınamamıştır"
+      - "monoterapi ile kan basıncı yeterli oranda kontrol altına alınmamaktadır"
+      - "monoterapi ile kan basıncı kontrol altına alınamamıştır"
+      - "hastanın monoterapi ile kan basıncının yeterli oranda kontrol altına alınmadığı"
+
+
+kurallar:
+
+  # --- Ana kural ------------------------------------------------------------
+  #
+  # kapsam: urun -> sadece ARB ve KKB'yi AYNI kutuda birleştiren
+  # kombinasyon ürünlerinde tetiklenir. Ayrı kutularda yazılmışsa
+  # tetiklenmez (bkz. ARB_KKB_AYRI_URUN).
+  #
+  # Üçlü kombinasyonlar (ARB + KKB + diüretik) da bir ARB+KKB ürünü
+  # içerdiği için bu kural tetiklenir. İstemiyorsanız tetikleyiciye
+  # "hicbiri_bulunmamali: [DIURETIK]" ekleyin.
+  - id: ARB_KKB_MONOTERAPI
+    tip: ibare_kontrolu
+    kapsam: urun
+    baslik: "ARB + KKB kombinasyon ürününde monoterapi ibaresi"
+    sut_madde: "SUT EK-4/F madde 51"
+    seviye: HATA
+    tetikleyici:
+      hepsi_bulunmali: [ARB, KKB]
+    ibare: monoterapi_yetersiz
+    mesaj_yok: >-
+      Anjiyotensin reseptör blokeri ile kalsiyum kanal blokerini aynı üründe
+      birleştiren bir kombinasyon var. Raporda "monoterapi ile kan basıncı
+      kontrol altına alınamamıştır" ibaresi bulunmalıdır; raporda bu ibare
+      tespit edilemedi.
+    mesaj_var: >-
+      ARB + KKB kombinasyon ürünü için gereken monoterapi ibaresi raporda mevcut.
+
+  # --- Kuralın tetiklenmediği durumları görünür kılan notlar ----------------
+  #
+  # Bunlar hata değil. Amaçları, motorun neye bakıp neyi atladığını
+  # kullanıcıya göstermek. Sessiz geçen bir kontrol, güvenilmez bir
+  # kontroldür.
+
+  - id: ARB_KKB_AYRI_URUN
+    tip: ayrik_urun_notu
+    baslik: "ARB ve KKB ayrı ürünler olarak yazılmış"
+    sut_madde: "SUT EK-4/F madde 51"
+    seviye: BILGI
+    siniflar: [ARB, KKB]
+    mesaj: >-
+      ARB ve kalsiyum kanal blokeri ayrı ürünler halinde yazılmış. Kombinasyon
+      ürünü olmadığı için monoterapi ibaresi aranmadı. Bunların gerçekten ayrı
+      kutu olduğunu teyit edin -- tek bir kombinasyon tableti iki satır halinde
+      okunduysa kural yanlışlıkla atlanır.
+
+  - id: ARB_DIURETIK_IBARE_GEREKMEZ
+    tip: bilgi_notu
+    kapsam: urun
+    baslik: "ARB + diüretik için ek ibare aranmaz"
+    sut_madde: "SUT EK-4/F madde 51"
+    seviye: BILGI
+    tetikleyici:
+      hepsi_bulunmali: [ARB, DIURETIK]
+      hicbiri_bulunmamali: [KKB]
+    mesaj: >-
+      ARB + diüretik kombinasyonu tespit edildi. Bu kombinasyon için raporda
+      ayrıca monoterapi ibaresi aranmaz.
+
+  - id: ACE_IBARE_GEREKMEZ
+    tip: bilgi_notu
+    kapsam: tumu
+    baslik: "ACE inhibitörü için ek ibare aranmaz"
+    sut_madde: "DOLDURULACAK"
+    seviye: BILGI
+    tetikleyici:
+      hepsi_bulunmali: [ACE]
+    mesaj: >-
+      ACE inhibitörü tek başına veya kombinasyon halinde kullanıldığında
+      raporda ayrıca monoterapi ibaresi aranmaz.
+
+  # --- Birliktelik uyarıları ------------------------------------------------
+
+  - id: RAS_CIFTLI_BLOKAJ
+    tip: birliktelik_uyarisi
+    kapsam: tumu
+    baslik: "ACE inhibitörü ve ARB birlikte"
+    sut_madde: "DOLDURULACAK"
+    seviye: UYARI
+    tetikleyici:
+      hepsi_bulunmali: [ACE, ARB]
+    mesaj: >-
+      ACE inhibitörü ve anjiyotensin reseptör blokeri aynı anda yazılmış.
+      Çiftli RAS blokajı genel olarak önerilmez; reçeteyi ve raporu
+      hekimle teyit edin.
+
+  - id: ARNI_ACE_BIRLIKTE
+    tip: birliktelik_uyarisi
+    kapsam: tumu
+    baslik: "ARNI ve ACE inhibitörü birlikte"
+    sut_madde: "DOLDURULACAK"
+    seviye: UYARI
+    tetikleyici:
+      hepsi_bulunmali: [ARNI, ACE]
+    mesaj: >-
+      Sakubitril içeren ilaç ile ACE inhibitörü birlikte görünüyor.
+      Bu kombinasyon kontrendikedir, kontrol edin.
+
+  # --- Rapor-reçete tutarlılığı ---------------------------------------------
+  - id: RAPORSUZ_ARB_RECETE
+    tip: raporsuz_recete_kontrolu
+    baslik: "Raporsuz ARB reçetesi"
+    sut_madde: "SUT EK-4/F madde 51 (SGK yazısı 02.03.2026, E-89843079-104.03)"
+    seviye: HATA
+    azami_kutu: 1
+    ibare: monoterapi_yetersiz
+
+    
+  - id: RECETE_RAPOR_KAPSAM
+    tip: kapsam_kontrolu
+    baslik: "Reçetedeki ilaç raporda yok"
+    sut_madde: "DOLDURULACAK"
+    seviye: HATA
+    muaf_siniflar:
+      - [ARB]
+      - [ARB, DIURETIK]
+
+  - id: RAPOR_SURE
+    tip: tarih_kontrolu
+    baslik: "Reçete tarihi rapor geçerlilik aralığında değil"
+    sut_madde: "DOLDURULACAK"
+    seviye: HATA

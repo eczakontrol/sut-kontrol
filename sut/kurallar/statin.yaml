@@ -1,0 +1,43 @@
+surum: "2026-10-12a"
+kaynak: "SUT Güncel Sürüm"
+
+kurallar:
+  - id: STATIN_ILK_RAPOR_BRANS
+    tip: brans_kontrolu
+    kapsam: urun
+    baslik: "Statin ilk rapor düzenleme yetkisi"
+    sut_madde: "DOLDURULACAK"
+    seviye: HATA
+    tetikleyici:
+      herhangi_bulunmali: [ROSUVASTATIN, ATORVASTATIN, SIMVASTATIN, PRAVASTATIN, FLUVASTATIN, PITAVASTATIN]
+    izinli_branslar: [kardiyoloji, kalp ve damar, endokrinoloji, geriatri, noroloji, ic hastaliklari, dahiliye, aile hekim]
+    mesaj_yok: >-
+      Statin tedavisi için raporlar Kardiyoloji, Kalp ve Damar Cerrahisi, Endokrinoloji, Geriatri, Nöroloji veya İç Hastalıkları uzman hekimlerince düzenlenmelidir (İdame raporlarda Aile Hekimi yetkilidir).
+      
+  - id: STATIN_YUKSEK_DOZ_ROSUVASTATIN
+    tip: doz_siniri_kontrolu
+    baslik: "Yüksek Doz Rosuvastatin (≥20mg) Kısıtı"
+    sut_madde: "DOLDURULACAK"
+    tetikleyici:
+      herhangi_bulunmali: [ROSUVASTATIN]
+    min_doz: 20
+    izinli_branslar: [kardiyoloji, kalp ve damar, endokrinoloji, geriatri, noroloji, ic hastaliklari, dahiliye]
+    mesaj_yok: >-
+      Rosuvastatin 20 mg ve üzeri dozlar (kombinasyonları dahil) yalnızca Kardiyoloji, Kalp ve Damar Cerrahisi, Endokrinoloji, Geriatri, Nöroloji veya İç Hastalıkları uzman hekimlerinin raporuna dayanılarak ödenebilir (Aile hekimliği yüksek doz raporu çıkaramaz).
+
+  - id: STATIN_YUKSEK_DOZ_ATORVASTATIN
+    tip: doz_siniri_kontrolu
+    baslik: "Yüksek Doz Atorvastatin (≥40mg) Kısıtı"
+    sut_madde: "DOLDURULACAK"
+    tetikleyici:
+      herhangi_bulunmali: [ATORVASTATIN]
+    min_doz: 40
+    izinli_branslar: [kardiyoloji, kalp ve damar, endokrinoloji, geriatri, noroloji, ic hastaliklari, dahiliye]
+    mesaj_yok: >-
+      Atorvastatin 40 mg ve üzeri dozlar (kombinasyonları dahil) yalnızca Kardiyoloji, Kalp ve Damar Cerrahisi, Endokrinoloji, Geriatri, Nöroloji veya İç Hastalıkları uzman hekimlerinin raporuna dayanılarak ödenebilir.
+      - id: STATIN_LDL_KONTROLU
+    tip: ldl_kontrolu
+    baslik: "Statin Başlama Kriterleri (LDL ve Risk Faktörleri)"
+    sut_madde: "DOLDURULACAK"
+    tetikleyici:
+      herhangi_bulunmali: [ROSUVASTATIN, ATORVASTATIN, SIMVASTATIN, PRAVASTATIN, FLUVASTATIN, PITAVASTATIN]
