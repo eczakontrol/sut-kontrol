@@ -351,6 +351,12 @@ def _tani_kodu_ibare_kurali(
     ]
 
 
+def _tani_kodu_ibare_kontrolu(
+    kural: dict, ks: KuralSeti, rapor: Rapor, recete: Recete | None, havuz: list[Ilac]
+) -> list[Bulgu]:
+    return _tani_kodu_ibare_kurali(kural, ks, rapor, recete, havuz)
+
+
 def _cok_kaynakli_ibare_kurali(kural: dict, ks: KuralSeti, rapor: Rapor, recete: Recete | None, havuz: list[Ilac]) -> list[Bulgu]:
     tetikleyici = kural.get("tetikleyici", {})
     gruplar = _gruplar(havuz, kural.get("kapsam", "urun"))

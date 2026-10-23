@@ -177,6 +177,7 @@ MARKALAR: dict[str, str] = {
     "diovan": "valsartan", "cozaar": "losartan", "atacand": "kandesartan", "micardis": "telmisartan", "aprovel": "irbesartan", "norvasc": "amlodipin",
     # --- Antidiyabetik ---
     "glifor": "metformin", "diaformin": "metformin", "matofin": "metformin", "diamicron": "gliklazid", "amaryl": "glimepirid", "glucobay": "akarboz",
+    "cosimprel": "perindopril bisoprolol",
     "glifix plus": "pioglitazon metformin", "glifix": "pioglitazon", "novonorm": "repaglinid", "starlix": "nateglinid",
     "janumet": "sitagliptin metformin", "januvia": "sitagliptin", "galvus met": "vildagliptin metformin", "galvus": "vildagliptin",
     "onglyza": "saksagliptin", "trajenta": "linagliptin", "forziga": "dapagliflozin", "jardiance": "empagliflozin", "byetta": "eksenatid",
