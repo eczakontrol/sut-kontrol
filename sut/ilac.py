@@ -106,6 +106,15 @@ ETKEN_MADDELER: dict[str, str] = {
     "atenolol": BETA, "propranolol": BETA, "betaksolol": BETA,
     # --- Diğer antihipertansif ---
     "aliskiren": RENIN, "sakubitril": ARNI,
+    # Kalsiyum Kanal Blokörleri (KKB) ve Dihidropiridin türevleri
+    "lerkandipin": "KKB",
+    "benidipin": "KKB",
+    "amlodipin": "KKB",
+    "nifedipin": "KKB",
+    "nisoldipin": "KKB",
+    "felodipin": "KKB",
+    "barnidipin": "KKB",
+    
     # --- Antidiyabetikler ---
     "metformin": METFORMIN,
     "gliklazid": SULFONILURE, "glimepirid": SULFONILURE,
