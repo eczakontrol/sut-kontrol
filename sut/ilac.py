@@ -128,6 +128,9 @@ ETKEN_MADDELER: dict[str, str] = {
     "rivaroksaban": NOAK,
     "dabigatran": NOAK,
     "edoksaban": NOAK,
+    "tikagrelor": KLOPIDOGREL,
+    "prasugrel": KLOPIDOGREL,
+    "varfarin": NOAK,
     # --- Düşük molekül ağırlıklı heparinler (DMAH) -- SUT 4.2.7 ---
     "enoksaparin": DMAH,
     "nadroparin": DMAH,

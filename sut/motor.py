@@ -283,8 +283,6 @@ _GEBELIK_HAFTA_DESENI = re.compile(r"(\d+\s*\.?\s*gebelik\s+hafta|\d+\s*\.?\s*ha
 def _tani_kodu_ibare_kurali(
     kural: dict, ks: KuralSeti, rapor: Rapor, recete: Recete | None, havuz: list[Ilac]
 ) -> list[Bulgu]:
-    """Belirli tanı kodu önekleri (ör. E12-E14 veya gebelik O22/O30/Z32-Z35) +
-    tetikleyici ilaç sınıfı varsa, rapor ya da reçete metninde ilgili ibareyi arar."""
     tetikleyici = kural.get("tetikleyici", {})
     gruplar = _gruplar(havuz, kural.get("kapsam", "urun"))
     tetikleyen = [e for e, s in gruplar if _tetiklendi_mi(tetikleyici, s)]
@@ -725,6 +723,43 @@ RAPOR_KODU_ICD_UYUMU: dict[str, tuple[str, tuple[str, ...]]] = {
     "08.01": ("Lipid Metabolizması Bozuklukları", ("E78",)),
 }
 
+# 20.00 (Katılım Paylı) Rapor Kodunda İlaç Sınıflarına Göre Zorunlu KÜB Endikasyon ICD-10 Önekleri
+SINIF_20_00_ENDIKASYON_ICDLERI: dict[str, tuple[str, tuple[str, ...]]] = {
+    "DMAH": (
+        "DMAH (VTE / DVT / PE / AKS / AF / Gebelik / Cerrahi / Onkoloji)",
+        ("I80", "I81", "I82", "I26", "I20", "I21", "I22", "I24", "I25", "I48", "I50", "I63", "I64", "I74",
+         "O22", "O30", "O87", "Z32", "Z33", "Z34", "Z35", "D68", "C", "Z95", "Z96", "Z98", "M16", "M17", "S72", "S82", "T84"),
+    ),
+    "NOAK": ("NOAK (NVAF / DVT / PE)", ("I48", "I80", "I82", "I26")),
+    "KLOPIDOGREL": ("Antiagregan (KAH / AKS / İnme / GİA / PAH)", ("I20", "I21", "I22", "I24", "I25", "I63", "I64", "I65", "I66", "I67", "I69", "G45", "I70", "I73", "Z95")),
+    "IVABRADIN": ("İvabradin (Anjina / Kalp Yetmezliği)", ("I20", "I25", "I50")),
+    "BPH_ALFA_BLOKER": ("BPH Alfa Bloker (N40 Prostat veya Doksazosin için I10-I15)", ("N40", "I10", "I11", "I12", "I13", "I15")),
+    "BPH_5ARI": ("BPH 5-Alfa Redüktaz İnhibitörü (N40)", ("N40",)),
+    "BISFOSFONAT": ("Osteoporoz / Kemik Hastalıkları", ("M80", "M81", "M82", "M85", "M88", "C")),
+    "DENOSUMAB": ("Osteoporoz / Kemik Kaybı", ("M80", "M81", "M82", "C")),
+    "ROSUVASTATIN": ("Hiperlipidemi / KV Koruma", ("E78", "I20", "I21", "I25", "I63", "I70", "E10", "E11", "E12", "E13", "E14")),
+    "ATORVASTATIN": ("Hiperlipidemi / KV Koruma", ("E78", "I20", "I21", "I25", "I63", "I70", "E10", "E11", "E12", "E13", "E14")),
+    "SIMVASTATIN": ("Hiperlipidemi / KV Koruma", ("E78", "I20", "I21", "I25", "I63", "I70", "E10", "E11", "E12", "E13", "E14")),
+    "PRAVASTATIN": ("Hiperlipidemi / KV Koruma", ("E78", "I20", "I21", "I25", "I63", "I70", "E10", "E11", "E12", "E13", "E14")),
+    "FLUVASTATIN": ("Hiperlipidemi / KV Koruma", ("E78", "I20", "I21", "I25", "I63", "I70", "E10", "E11", "E12", "E13", "E14")),
+    "PITAVASTATIN": ("Hiperlipidemi / KV Koruma", ("E78", "I20", "I21", "I25", "I63", "I70", "E10", "E11", "E12", "E13", "E14")),
+    "METFORMIN": ("Diabetes Mellitus / PKOS / Prediyabet", ("E10", "E11", "E12", "E13", "E14", "R73", "E28")),
+    "SULFONILURE": ("Diabetes Mellitus", ("E10", "E11", "E12", "E13", "E14")),
+    "GLINID": ("Diabetes Mellitus", ("E10", "E11", "E12", "E13", "E14")),
+    "TZD": ("Diabetes Mellitus", ("E10", "E11", "E12", "E13", "E14")),
+    "AKARBOZ": ("Diabetes Mellitus / Prediyabet", ("E10", "E11", "E12", "E13", "E14", "R73")),
+    "DPP4": ("Diabetes Mellitus", ("E10", "E11", "E12", "E13", "E14")),
+    "SGLT2": ("Diabetes Mellitus / Kalp Yetmezliği / KBH", ("E10", "E11", "E12", "E13", "E14", "I50", "N18")),
+    "GLP1": ("Diabetes Mellitus", ("E10", "E11", "E12", "E13", "E14")),
+    "INSULIN_KISA": ("Diabetes Mellitus", ("E10", "E11", "E12", "E13", "E14", "O24")),
+    "INSULIN_UZUN": ("Diabetes Mellitus", ("E10", "E11", "E12", "E13", "E14", "O24")),
+    "ACE": ("Hipertansiyon / KY / KAH / Diyabetik Nefropati", ("I10", "I11", "I12", "I13", "I15", "I50", "I20", "I21", "I25", "E10", "E11", "N18")),
+    "ARB": ("Hipertansiyon / KY / Diyabetik Nefropati", ("I10", "I11", "I12", "I13", "I15", "I50", "E10", "E11", "N18")),
+    "KKB": ("Hipertansiyon / Anjina / Aritmi", ("I10", "I11", "I12", "I13", "I15", "I20", "I25", "I47", "I48", "I49", "I73")),
+    "BETA": ("Hipertansiyon / KAH / KY / Aritmi / Migren / Tremor", ("I10", "I11", "I12", "I13", "I15", "I20", "I21", "I25", "I42", "I47", "I48", "I49", "I50", "E05", "G43", "G25")),
+    "DIURETIK": ("Hipertansiyon / KY / Ödem / Siroz / KBH", ("I10", "I11", "I12", "I13", "I15", "I50", "R60", "K74", "N18", "E26")),
+}
+
 
 def _rapor_kodu_bilgi_kurali(kural: dict, rapor: Rapor, recete: Recete | None, havuz: list[Ilac]) -> list[Bulgu]:
     raporsuz = recete is not None and not recete.rapor_var
@@ -758,34 +793,328 @@ def _rapor_kodu_bilgi_kurali(kural: dict, rapor: Rapor, recete: Recete | None, h
     )]
 
 
-def _rapor_kodu_icd_uyum_kontrolu(rapor: Rapor, recete: Recete | None) -> list[Bulgu]:
-    """Raporda üst başlık olarak girilen Rapor Kodu (örn. 04.05) ile altındaki ICD-10
-    tanı kodlarının (örn. I10) birbiriyle örtüşüp örtüşmediğini otomatik denetler."""
+def _rapor_kodu_icd_uyum_kontrolu(rapor: Rapor, recete: Recete | None, havuz: list[Ilac]) -> list[Bulgu]:
     if recete is not None and not recete.rapor_var:
         return []
     rkodlar = [k.strip() for k in (getattr(rapor, "rapor_kodlari", None) or []) if k.strip()]
     icd_kodlar = [k.strip().upper() for k in (rapor.tani_kodlari or []) if k.strip() and not k.strip()[0].isdigit()]
-    if not rkodlar or not icd_kodlar:
+    if not rkodlar:
         return []
 
     bulgular: list[Bulgu] = []
     for rkod in rkodlar:
         for anahtar, (ad, beklenen_icdler) in RAPOR_KODU_ICD_UYUMU.items():
             if rkod.startswith(anahtar):
-                eslesen_icd = [i for i in icd_kodlar if i.startswith(beklenen_icdler)]
-                if not eslesen_icd:
+                if not icd_kodlar:
                     bulgular.append(Bulgu(
-                        kural_id=f"RAPOR_ICD_UYUMSUZ_{anahtar}",
-                        seviye="UYARI",
-                        baslik=f"Rapor Kodu ({rkod}) ile Alt ICD-10 Tanı Kodu Uyumsuzluğu!",
-                        mesaj=(
-                            f"Raporda '{rkod} - {ad}' rapor kodu yer alıyor ancak bu rapor kodunun altında beklenen "
-                            f"ICD-10 tanı kodlarından ({', '.join(beklenen_icdler)}...) hiçbiri tespit edilemedi! "
-                            "Medula'da üst rapor kodu ile alt ICD-10 kodunun uyumlu olduğundan emin olun."
-                        ),
+                        kural_id=f"RAPOR_ICD_EKSIK_{anahtar}",
+                        seviye="HATA",
+                        baslik=f"EKSİK BİLGİ: Rapor Kodu ({rkod}) Var Ama Alt ICD-10 Tanı Kodu Girilmemiş!",
+                        mesaj=f"Raporda '{rkod} - {ad}' üst rapor kodu var ancak altında hiçbir ICD-10 tanı kodu ({', '.join(beklenen_icdler)} vb.) belirtilmemiş!",
                         sut_madde="SGK Medula Rapor/ICD-10 Kontrolü",
-                        kanit=f"Rapor Kodu: {rkod} · Rapordaki ICD-10 Kodları: {', '.join(icd_kodlar)}"
+                        kanit=f"Rapor Kodu: {rkod} · Alt ICD-10: Yok"
                     ))
+                else:
+                    eslesen_icd = [i for i in icd_kodlar if i.startswith(beklenen_icdler)]
+                    if not eslesen_icd:
+                        bulgular.append(Bulgu(
+                            kural_id=f"RAPOR_ICD_UYUMSUZ_{anahtar}",
+                            seviye="HATA",
+                            baslik=f"KESİNTİ RİSKİ: Rapor Kodu ({rkod}) ile Alt ICD-10 Tanı Kodu Uyumsuz!",
+                            mesaj=f"Raporda '{rkod} - {ad}' rapor kodu yer alıyor ancak altındaki ICD-10 tanı kodları ({', '.join(icd_kodlar)}) bu rapor kodunun beklediği tanı grubuna ({', '.join(beklenen_icdler)}...) uymuyor!",
+                            sut_madde="SGK Medula Rapor/ICD-10 Kontrolü",
+                            kanit=f"Rapor Kodu: {rkod} · Rapordaki ICD-10 Kodları: {', '.join(icd_kodlar)}"
+                        ))
+
+    # 20.00 (Katılım Paylı) Rapor Kodunda Alt ICD-10 Endikasyon Uyumu
+    yirmi_var = any(r.startswith("20.00") or r == "20" for r in rkodlar)
+    if yirmi_var:
+        if not icd_kodlar:
+            bulgular.append(Bulgu(
+                kural_id="RAPOR_20_00_ICD_EKSIK",
+                seviye="HATA",
+                baslik="EKSİK BİLGİ (KESİNTİ SEBEBİ): 20.00 Rapor Kodunda Alt ICD-10 Tanı Kodu Girilmemiş!",
+                mesaj="20.00 ile çıkan tüm raporların alt ICD-10 tanı kodları ilacın KÜB endikasyonuna uymak zorundadır! Alt Tanı Kodları (ICD-10) kutusu boş bırakılmış.",
+                sut_madde="SUT 20.00 Endikasyon Uyumu",
+                kanit="Rapor Kodu: 20.00 · Alt ICD-10 Tanı Kodu: Yok"
+            ))
+        else:
+            for urun in havuz:
+                for sinif_kodu in urun.siniflar:
+                    if sinif_kodu in SINIF_20_00_ENDIKASYON_ICDLERI:
+                        grup_adi, izinli_onekler = SINIF_20_00_ENDIKASYON_ICDLERI[sinif_kodu]
+                        uyumlu = [icd for icd in icd_kodlar if icd.startswith(izinli_onekler)]
+                        if not uyumlu:
+                            bulgular.append(Bulgu(
+                                kural_id=f"RAPOR_20_00_ENDIKASYON_HATA_{sinif_kodu}",
+                                seviye="HATA",
+                                baslik=f"KESİNTİ SEBEBİ: 20.00 Raporunun Alt ICD-10 Kodu '{urun.ad}' Endikasyonuna Uymuyor!",
+                                mesaj=(
+                                    f"Rapor '20.00' kodu ile çıkmış ancak altındaki ICD-10 tanı kodu ({', '.join(icd_kodlar)}), "
+                                    f"'{urun.ad}' ({grup_adi}) ilacının onaylı KÜB endikasyonlarıyla ({', '.join(izinli_onekler[:10])}...) uyuşmuyor! "
+                                    "20.00 ile çıkan tüm raporların alt kodları endikasyonuna uymalıdır."
+                                ),
+                                sut_madde="SUT 20.00 Endikasyon Uyumu",
+                                kanit=f"Ürün: {urun.ad} · Rapor Kodu: 20.00 · Uyumsuz Alt ICD-10: {', '.join(icd_kodlar)}"
+                            ))
+                        else:
+                            bulgular.append(Bulgu(
+                                kural_id=f"RAPOR_20_00_ENDIKASYON_OK_{sinif_kodu}",
+                                seviye="BILGI",
+                                baslik=f"20.00 Rapor Kodu ve Alt ICD-10 Endikasyon Uyumu: UYGUN ({urun.ad})",
+                                mesaj=f"20.00 rapor kodu altındaki ICD-10 tanı kodu ({', '.join(uyumlu)}) '{urun.ad}' endikasyonu ile uyumlu.",
+                                sut_madde="SUT 20.00 Endikasyon Uyumu",
+                                kanit=f"Ürün: {urun.ad} · Doğrulanan ICD-10: {', '.join(uyumlu)}"
+                            ))
+    return bulgular
+
+
+def _dmah_kurali(kural: dict, rapor: Rapor, recete: Recete | None, havuz: list[Ilac]) -> list[Bulgu]:
+    """DMAH (Oksapar, Clexane, Hibor vb.) için neyin eksik olduğunu tek tek söyleyen denetim fonksiyonu."""
+    tetikleyici = kural.get("tetikleyici", {})
+    tetikleyen = [e for e, s in _gruplar(havuz, "urun") if _tetiklendi_mi(tetikleyici, s)]
+    if not tetikleyen:
+        return []
+
+    etiket = ", ".join(dict.fromkeys(tetikleyen))
+    sut = kural.get("sut_madde", "SUT 4.2.7")
+    bulgular: list[Bulgu] = []
+
+    tum_icdler = [
+        k.strip().upper()
+        for k in (list(rapor.tani_kodlari or []) + (list(recete.tani_kodlari or []) if recete else []))
+        if k.strip() and not k.strip()[0].isdigit()
+    ]
+    birlesik_metin_ham = (rapor.serbest_metin or "") + " " + ((recete.aciklama if recete else "") or "")
+    metin_norm = normalize(birlesik_metin_ham)
+    rapor_metni_ham = rapor.serbest_metin or ""
+
+    # 0. Hemodiyaliz kontrolü
+    if any(k.startswith(("Z49", "Z99.2")) for k in tum_icdler) or "hemodiyaliz" in metin_norm:
+        bulgular.append(Bulgu(
+            kural_id=kural["id"] + "_HEMODIYALIZ",
+            seviye="HATA",
+            baslik="KESİNTİ SEBEBİ: Hemodiyaliz Tedavisinde DMAH Ayrıca Ödenmez!",
+            mesaj="SUT 4.2.7/3 gereği hemodiyaliz tedavilerinde heparinler (DMAH dahil) işlem puanına dahil olduğundan ayrıca bedeli ödenmez!",
+            sut_madde="SUT 4.2.7/3",
+            kanit=f"Ürün: {etiket}"
+        ))
+
+    # Raporsuz Reçete Durumu
+    if recete is not None and not recete.rapor_var:
+        if any(x in metin_norm for x in ("acil", "yatan hasta", "servis", "yatakli")):
+            bulgular.append(Bulgu(
+                kural_id=kural["id"] + "_RAPORSUZ_OK",
+                seviye="BILGI",
+                baslik="1. Raporsuz DMAH Koşulu: Acil / Yatan Hasta İbaresi Mevcut",
+                mesaj="SUT 4.2.7/2 gereği DMAH raporsuz yalnızca yatan hastalarda veya acil serviste ödenir.",
+                sut_madde="SUT 4.2.7/2",
+                kanit=f"Ürün: {etiket}"
+            ))
+        else:
+            bulgular.append(Bulgu(
+                kural_id=kural["id"] + "_RAPORSUZ_HATA",
+                seviye="HATA",
+                baslik="1. EKSİK RAPOR (KESİNTİ SEBEBİ): Ayaktan Hastada Raporsuz DMAH Ödenmez!",
+                mesaj="SUT 4.2.7/2 gereği DMAH raporsuz YALNIZCA (a) yatan hastalarda veya (b) acil müdahale gerektiren durumlarda acil serviste geçerlidir. Ayaktan hastada uzman hekim raporu eksik!",
+                sut_madde="SUT 4.2.7/2",
+                kanit=f"Raporsuz reçete · Ürün: {etiket}"
+            ))
+        if not tum_icdler:
+            bulgular.append(Bulgu(
+                kural_id=kural["id"] + "_RAPORSUZ_TANI_YOK",
+                seviye="HATA",
+                baslik="2. EKSİK BİLGİ: Reçetede Alt Tanı Kodu (ICD-10) Girilmemiş!",
+                mesaj="Reçetede DMAH endikasyonunu doğrulayacak hiçbir ICD-10 tanı kodu (Örn: I80, I26, O22 vb.) bulunamadı!",
+                sut_madde=sut,
+                kanit="Mevcut ICD-10: Yok"
+            ))
+        return bulgular
+
+    # 1. TEDAVİ ŞEMASI VE DOZ (IU / mg) KONTROLÜ
+    doz_birim_var = bool(re.search(r"\b\d+(?:[.,]\d+)?\s*(iu|anti-?xa|mg|ml|unite|ünite)\b", rapor_metni_ham, re.IGNORECASE))
+    sema_siklik_var = bool(re.search(r"(\b[123]\s*[xX*]\s*\d+|\bgunde\s*[123]|\bgünde\s*[123]|1\s*kez|2\s*kez|\b1x1\b|\b2x1\b)", rapor_metni_ham, re.IGNORECASE))
+
+    if doz_birim_var and sema_siklik_var:
+        bulgular.append(Bulgu(
+            kural_id=kural["id"] + "_SEMA_OK",
+            seviye="BILGI",
+            baslik="1. Tedavi Şeması ve Doz (IU/mg) Kontrolü: UYGUN",
+            mesaj="Rapor açıklamasında ilacın dozu (IU/mg) ve günlük tedavi şeması belirtilmiş.",
+            sut_madde="SUT 4.2.7 / Protokol 3.3.1.d",
+            kanit="Rapor metninde doz ve tedavi şeması mevcut."
+        ))
+    elif doz_birim_var and not sema_siklik_var:
+        bulgular.append(Bulgu(
+            kural_id=kural["id"] + "_SEMA_SIKLIK_YOK",
+            seviye="HATA",
+            baslik="1. EKSİK BİLGİ (İADE / KESİNTİ SEBEBİ): Günlük Tedavi Şeması (1x1 / 2x1) Eksik!",
+            mesaj="Rapor açıklamasında IU/mg birimi var ancak günlük kullanım şeması (Örn: 'Günde 1x4000 IU' veya '2x6000 IU') açıkça yazılmamış!",
+            sut_madde="SUT 4.2.7 / Protokol 3.3.1.d",
+            kanit=f"Tetikleyen ürün: {etiket}"
+        ))
+    else:
+        bulgular.append(Bulgu(
+            kural_id=kural["id"] + "_SEMA_YOK",
+            seviye="HATA",
+            baslik="1. EKSİK BİLGİ (İADE / KESİNTİ SEBEBİ): Raporda Tedavi Şeması ve Doz (IU/mg) Eksik!",
+            mesaj=(
+                "SUT 4.2.7 gereği raporda kullanılacak ilacın tedavi şeması ve dozu (IU veya mg cinsinden; "
+                "Örn: 'Günde 1x4000 IU (40 mg)' veya '2x6000 Anti-Xa IU') rapor açıklamasında AÇIKÇA BELİRTİLMELİDİR! "
+                "Rapor serbest metninde tedavi şeması/doz bulunamadı (Yazılmaması İADE, hatalı yazılması KESİNTİ sebebidir)."
+            ),
+            sut_madde="SUT 4.2.7 / Protokol 3.3.1.d",
+            kanit="Rapor serbest metni boş veya IU/mg doz şeması içermiyor."
+        ))
+
+    # 2. ALT TANI KODU (ICD-10) VE ENDİKASYON UYUMU KONTROLÜ
+    gebelik_onekleri = ("O22", "O30", "O87", "Z32", "Z33", "Z34", "Z35")
+    uygun_onekler = SINIF_20_00_ENDIKASYON_ICDLERI["DMAH"][1]
+    gebelik_tanisi = [k for k in tum_icdler if k.startswith(gebelik_onekleri)]
+    uyumlu_tanilar = [k for k in tum_icdler if k.startswith(uygun_onekler)]
+
+    if not tum_icdler:
+        bulgular.append(Bulgu(
+            kural_id=kural["id"] + "_TANI_EKSIK",
+            seviye="HATA",
+            baslik="2. EKSİK BİLGİ (KESİNTİ SEBEBİ): Alt Tanı Kodu (ICD-10) Girilmemiş!",
+            mesaj=(
+                "Raporda DMAH kullanımını doğrulayan hiçbir ICD-10 alt tanı kodu (Örn: I80.2 DVT, I26 PE, O22/Z35 Gebelik, "
+                "I20-I25 AKS, Z96/M16 Ortopedik Cerrahi, C00-C97 Onkoloji) girilmemiş! "
+                "Özellikle 20.00 ile çıkan raporlarda alt tanı kodunun KÜB endikasyonuna uyması zorunludur."
+            ),
+            sut_madde="SUT 4.2.7 (Endikasyon Uyumu)",
+            kanit="Alt Tanı Kodları (ICD-10): Boş"
+        ))
+    elif not uyumlu_tanilar:
+        bulgular.append(Bulgu(
+            kural_id=kural["id"] + "_TANI_UYUMSUZ",
+            seviye="HATA",
+            baslik="2. KESİNTİ SEBEBİ: Alt ICD-10 Tanı Kodu DMAH Endikasyonuna Uymuyor!",
+            mesaj=(
+                f"Girilen alt ICD-10 tanı kodu ({', '.join(tum_icdler)}), DMAH (Enoksaparin/Bemiparin vb.) KÜB onaylı "
+                "endikasyonlarından hiçbiriyle (DVT/PE: I80-I82/I26, AKS/AF: I20-I25/I48, Gebelik: O22/O30/Z32-Z35, "
+                "Ortopedik/Genel Cerrahi: Z96/Z98/M16-M17, Onkoloji: C00-C97) uyuşmuyor!"
+            ),
+            sut_madde="SUT 4.2.7 (Endikasyon Uyumu)",
+            kanit=f"Uyumsuz Alt Tanı Kodu: {', '.join(tum_icdler)}"
+        ))
+    else:
+        bulgular.append(Bulgu(
+            kural_id=kural["id"] + "_TANI_OK",
+            seviye="BILGI",
+            baslik="2. Alt Tanı Kodu (ICD-10) ve Endikasyon Uyumu: UYGUN",
+            mesaj=f"Girilen ICD-10 tanı kodu ({', '.join(uyumlu_tanilar)}) DMAH KÜB endikasyonu ile uyumlu.",
+            sut_madde="SUT 4.2.7",
+            kanit=f"Doğrulanan ICD-10: {', '.join(uyumlu_tanilar)}"
+        ))
+
+    # 3. RAPOR SÜRESİ VE HEKİM BRANŞI / SAĞLIK KURULU KONTROLÜ (SUT 4.2.7/1)
+    branslar = [normalize(b) for b in (rapor.hekim_branslari or []) if b.strip()]
+    kurul_branslari = (
+        "onkoloji", "tibbi onkoloji", "hematoloji", "kalp damar", "kalp ve damar",
+        "kardiyoloji", "gogus", "ic hastaliklari", "dahiliye", "genel cerrahi", "noroloji"
+    )
+    kadin_dogum_var = any("kadin" in b or "dogum" in b or "jinekoloji" in b for b in branslar)
+    kurul_bransi_var = any(any(kb in b for kb in kurul_branslari) for b in branslar)
+    gebelik_durumu = bool(gebelik_tanisi) or any(x in metin_norm for x in ("gebe", "gebelik", "hamile"))
+
+    gun_farki = (rapor.bitis_tarihi - rapor.duzenleme_tarihi).days if (rapor.duzenleme_tarihi and rapor.bitis_tarihi) else None
+
+    if not branslar:
+        bulgular.append(Bulgu(
+            kural_id=kural["id"] + "_BRANS_EKSIK",
+            seviye="HATA",
+            baslik="3. EKSİK BİLGİ: Rapor Hekim Branşı Girilmemiş!",
+            mesaj=(
+                "Rapor Hekim Branşı alanı boş bırakılmış! SUT 4.2.7/1'e göre: (1) En fazla 6 ay süreli raporlarda tek uzman hekim "
+                "(branş serbest); (2) 6 aydan uzun süreli raporlarda Onkoloji, Hematoloji, KVC, Kardiyoloji, Göğüs, Dahiliye, "
+                "Genel Cerrahi veya Nöroloji uzmanlarından en az birinin yer aldığı 3 uzman hekimli SAĞLIK KURULU raporu; "
+                "(3) Gebelikte Kadın Hastalıkları ve Doğum uzmanı raporu (en fazla 10 ay) zorunludur."
+            ),
+            sut_madde="SUT 4.2.7/1",
+            kanit="Rapor Hekim Branşı: Boş"
+        ))
+    elif any("aile hekim" in b or "pratisyen" in b for b in branslar) and len(branslar) == 1:
+        bulgular.append(Bulgu(
+            kural_id=kural["id"] + "_BRANS_AILE_HATA",
+            seviye="HATA",
+            baslik="3. KESİNTİ SEBEBİ: Aile Hekimi / Pratisyen Hekim DMAH Raporu Çıkaramaz!",
+            mesaj="SUT 4.2.7/1 gereği DMAH raporları yalnızca UZMAN HEKİM veya SAĞLIK KURULU tarafından düzenlenebilir!",
+            sut_madde="SUT 4.2.7/1",
+            kanit=f"Girilen Branş: {', '.join(rapor.hekim_branslari)}"
+        ))
+    elif gebelik_durumu:
+        if gun_farki is not None and gun_farki > 310:
+            bulgular.append(Bulgu(
+                kural_id=kural["id"] + "_GEBELIK_SURE_HATA",
+                seviye="HATA",
+                baslik="3. KESİNTİ SEBEBİ: Gebelikte DMAH Rapor Süresi 10 Ayı Aşıyor!",
+                mesaj=f"Gebelikte Kadın Doğum uzman hekimince düzenlenen DMAH raporu en fazla 10 ay (305 gün) süreli olabilir. Mevcut rapor: {gun_farki} gün!",
+                sut_madde="SUT 4.2.7/1",
+                kanit=f"Rapor Süresi: {gun_farki} gün"
+            ))
+        elif not (kadin_dogum_var or kurul_bransi_var):
+            bulgular.append(Bulgu(
+                kural_id=kural["id"] + "_GEBELIK_BRANS_HATA",
+                seviye="HATA",
+                baslik="3. KESİNTİ SEBEBİ: Gebelikte Uygunsuz Rapor Hekim Branşı!",
+                mesaj="Gebelikte 10 aya kadar DMAH raporu Kadın Hastalıkları ve Doğum uzmanı tarafından düzenlenmelidir!",
+                sut_madde="SUT 4.2.7/1",
+                kanit=f"Girilen Branş: {', '.join(rapor.hekim_branslari)}"
+            ))
+        else:
+            bulgular.append(Bulgu(
+                kural_id=kural["id"] + "_GEBELIK_BRANS_OK",
+                seviye="BILGI",
+                baslik="3. Rapor Süresi ve Hekim Branşı (Gebelik): UYGUN",
+                mesaj="Gebelik DMAH raporunda hekim branşı ve rapor süresi (<= 10 ay) SUT 4.2.7/1'e uygun.",
+                sut_madde="SUT 4.2.7/1",
+                kanit=f"Branş: {', '.join(rapor.hekim_branslari)}"
+            ))
+    else:
+        if gun_farki is not None and gun_farki > 735:
+            bulgular.append(Bulgu(
+                kural_id=kural["id"] + "_SURE_2YIL_HATA",
+                seviye="HATA",
+                baslik="3. KESİNTİ SEBEBİ: DMAH Rapor Süresi 2 Yılı Aşıyor!",
+                mesaj=f"DMAH Sağlık Kurulu raporları en fazla 2 yıl (730 gün) süreli olabilir. Mevcut rapor: {gun_farki} gün!",
+                sut_madde="SUT 4.2.7/1",
+                kanit=f"Rapor Süresi: {gun_farki} gün"
+            ))
+        elif gun_farki is not None and gun_farki > 186:
+            if not kurul_bransi_var:
+                bulgular.append(Bulgu(
+                    kural_id=kural["id"] + "_KURUL_BRANS_HATA",
+                    seviye="HATA",
+                    baslik="3. KESİNTİ SEBEBİ: 6 Aydan Uzun DMAH Raporunda Zorunlu Kurul Branşı Yok!",
+                    mesaj=(
+                        f"Rapor süresi 6 ayı aşıyor ({gun_farki} gün). SUT 4.2.7/1 gereği 6 aydan uzun süreli DMAH raporları "
+                        "SAĞLIK KURULU raporu (3 uzman hekim) olmalı ve kurulda Onkoloji, Hematoloji, Kalp Damar Cerrahisi, "
+                        "Kardiyoloji, Göğüs Hastalıkları, İç Hastalıkları, Genel Cerrahi veya Nöroloji uzmanlarından en az biri bulunmalıdır!"
+                    ),
+                    sut_madde="SUT 4.2.7/1",
+                    kanit=f"Rapor Süresi: {gun_farki} gün · Girilen Branş: {', '.join(rapor.hekim_branslari)}"
+                ))
+            else:
+                bulgular.append(Bulgu(
+                    kural_id=kural["id"] + "_KURUL_UYARI",
+                    seviye="UYARI",
+                    baslik="3. Rapor Süresi > 6 Ay: 3 Hekimli Sağlık Kurulu Raporu Olduğunu Teyit Edin",
+                    mesaj=f"Rapor süresi {gun_farki} gün (> 6 ay). Zorunlu branş ({', '.join(rapor.hekim_branslari)}) mevcut; raporun 3 uzman hekim imzalı SAĞLIK KURULU raporu olduğunu teyit edin.",
+                    sut_madde="SUT 4.2.7/1",
+                    kanit=f"Süre: {gun_farki} gün · Branş: {', '.join(rapor.hekim_branslari)}"
+                ))
+        else:
+            bulgular.append(Bulgu(
+                kural_id=kural["id"] + "_BRANS_OK",
+                seviye="BILGI",
+                baslik="3. Rapor Süresi ve Hekim Branşı Kontrolü: UYGUN",
+                mesaj="6 aya kadar olan DMAH raporlarında tek uzman hekim raporu yeterlidir ve branş serbesttir.",
+                sut_madde="SUT 4.2.7/1",
+                kanit=f"Branş: {', '.join(rapor.hekim_branslari)}"
+            ))
+
     return bulgular
 
 
@@ -1029,11 +1358,14 @@ def calistir(rapor: Rapor, recete: Recete | None, ks: KuralSeti) -> Sonuc:
     bulgular: list[Bulgu] = []
 
     if ks.kurallar and ks.kurallar[0].get("id", "").startswith("KAPSAM"):
-        bulgular += _rapor_kodu_icd_uyum_kontrolu(rapor, recete)
+        bulgular += _rapor_kodu_icd_uyum_kontrolu(rapor, recete, havuz)
 
     for kural in ks.kurallar:
         tip = kural.get("tip")
 
+        if tip == "dmah_kontrolu":
+            bulgular += _dmah_kurali(kural, rapor, recete, havuz)
+            continue
         if tip == "doksazosin_kontrolu":
             bulgular += _doksazosin_kurali(kural, rapor, recete, havuz)
             continue
@@ -1063,7 +1395,7 @@ def calistir(rapor: Rapor, recete: Recete | None, ks: KuralSeti) -> Sonuc:
             bulgular += _raporsuz_yasakli_urun_kurali(kural, recete)
             continue
         if tip == "tani_kodu_ibare_kontrolu":
-            bulgular += _tani_kodu_ibare_kurali(kural, ks, rapor, recete, havuz)
+            bulgular += _tani_kodu_ibare_kontrolu(kural, ks, rapor, recete, havuz)
             continue
         if tip == "brans_kontrolu":
             bulgular += _brans_kurali(kural, rapor, recete, havuz)

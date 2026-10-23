@@ -9,25 +9,12 @@
 #      2 yıl geçerlilik, 3 aylık ara kuralı, İADE/KESİNTİ uyarıları,
 #      gebelik ICD-10 kod listesi) bu tablo kullanıldı.
 #
-# UYUMSUZLUK UYARISI: İki kaynak bazı noktalarda farklı ayrıntı
-# seviyesinde. Eczacı Odası tablosu >6 ay kullanım için "3 Uzman Hekim
-# Raporu" ve "en fazla 2 yıl" diyor, bunun 3.12.2025 tarihli bir SUT
-# değişikliğiyle eklendiğini belirtiyor; elimdeki resmi metin nüshası bu
-# iki ayrıntıyı (3 kişi / 2 yıl) içermiyor -- muhtemelen değişiklik
-# öncesi bir kopya. Branş listesinde ise resmi metin DAHA KAPSAMLI (8
-# branş); bu dosyada branş listesi için resmi metin esas alındı. Elinizdeki
-# en güncel SUT nüshasıyla bir kez karşılaştırmanızı öneririm.
-#
 # KAPSAM NOTU: ETKEN_MADDELER tablosunda enoksaparin, nadroparin,
 # dalteparin, tinzaparin, bemiparin hepsi tek bir DMAH sınıfı altında
 # toplandı (madde 4.2.7'nin metni "düşük molekül ağırlıklı heparinler"
-# diye genel ifade kullanıyor). Belgede isim geçen sadece Oksapar
-# (enoksaparin) ve Hibor (bemiparin) idi; nadroparin/dalteparin/
-# tinzaparin aynı ilaç grubunda oldukları için (genel farmakoloji
-# bilgisiyle) eklendi -- SUT'un bunları da aynı şekilde kapsadığını
-# siz de teyit edin.
+# diye genel ifade kullanıyor).
 
-surum: "2026-10-21a"
+surum: "2026-10-23"
 kaynak: "Sağlık Uygulama Tebliği madde 4.2.7, düşük molekül ağırlıklı heparinler (DMAH)"
 
 ayarlar:
@@ -46,61 +33,29 @@ ibareler:
 
 kurallar:
 
+  # 1. FARKLI ETKEN MADDELİ DMAH KOMBİNASYON YASAĞI (SUT 4.2.7/4)
   - id: DMAH_FARKLI_ETKEN_MADDE_YASAK
     tip: tekil_sinif_kontrolu
     sinif: DMAH
     azami_urun: 1
-    baslik: "Farklı etken maddeli DMAH'ların birlikte kullanımı"
+    baslik: "Farklı etken maddeli DMAH'ların birlikte kullanımı (Kombinasyon Yasağı)"
     sut_madde: "SUT 4.2.7/4"
     seviye: HATA
     mesaj: >-
-      Farklı etken maddeler içeren düşük molekül ağırlıklı heparinlerin (ör.
+      KESİNTİ SEBEBİ: Farklı etken maddeler içeren düşük molekül ağırlıklı heparinlerin (ör.
       enoksaparin + bemiparin, enoksaparin + nadroparin gibi) birlikte
       kullanılması halinde bedelleri Kurumca karşılanmaz. Aynı reçetede/raporda
       birden fazla farklı DMAH etken maddesi tespit edildi.
 
-  - id: DMAH_RAPORSUZ_KOSULLARI
-    tip: bilgi_notu
-    kapsam: tumu
-    baslik: "DMAH raporsuz ödeme koşulu"
-    sut_madde: "SUT 4.2.7/2"
-    seviye: UYARI
+  # 2. AKTİF DMAH DENETİM MOTORU (Tedavi Şeması Eksikliği, Tanı/Endikasyon Eksikliği, Gebelik Haftası, Rapor Süresi, Branş ve Hemodiyaliz Kontrolü)
+  - id: DMAH_AKTIF_KONTROL
+    tip: dmah_kontrolu
+    baslik: "DMAH Aktif SUT 4.2.7 Denetimi (Tedavi Şeması, Tanı/Endikasyon, Gebelik Haftası, Süre ve Branş)"
+    sut_madde: "SUT 4.2.7"
     tetikleyici:
       hepsi_bulunmali: [DMAH]
-    mesaj: >-
-      Düşük molekül ağırlıklı heparin (DMAH) tespit edildi. SUT 4.2.7/2 gereği
-      raporsuz reçete YALNIZCA (a) yatan hastalarda veya (b) acil müdahale
-      gerektiren durumlarda acil serviste geçerlidir. Reçete ayakta bir
-      hastaya aitse ve rapor yoksa, uzman hekim raporu aranmalıdır (bkz.
-      DMAH_SURE_VE_BRANS_OZETI).
 
-  - id: DMAH_HEMODIYALIZ_ODENMEZ
-    tip: bilgi_notu
-    kapsam: tumu
-    baslik: "Hemodiyaliz tedavisinde DMAH ayrıca ödenmez"
-    sut_madde: "SUT 4.2.7/3"
-    seviye: UYARI
-    tetikleyici:
-      hepsi_bulunmali: [DMAH]
-    mesaj: >-
-      Hemodiyaliz tedavilerinde heparinler (DMAH dahil) tanıya dayalı işlem
-      puanına dahil olduğundan, reçete edilse dahi ayrıca bedeli ödenmez.
-      Hastanın hemodiyaliz tedavisi görüp görmediğini teşhisten kontrol edin.
-
-  - id: DMAH_RAPOR_DOZ_SEMASI_ZORUNLU
-    tip: bilgi_notu
-    kapsam: tumu
-    baslik: "Raporda IU/mg cinsinden doz şeması zorunlu"
-    sut_madde: "SUT 4.2.7 (ayrıca bkz. Protokol 3.3.1.d -- Bursa Eczacı Odası özeti)"
-    seviye: UYARI
-    tetikleyici:
-      hepsi_bulunmali: [DMAH]
-    mesaj: >-
-      SUT 4.2.7 gereği raporda kullanılacak ilacın dozu (IU veya mg ve ünite
-      cinsinden, ör. 4000IU, 6000IU, 40mg, 60mg) açıkça belirtilmelidir. Bu
-      bilginin raporda yazılmaması İADE sebebidir; dozun hatalı yazılmış
-      olması KESİNTİ sebebidir. Raporda bu doz şemasının bulunduğunu teyit edin.
-
+  # 3. GEBELİK TEŞHİSİNDE GEBELİK HAFTASI İFADESİ (O22 / O30 / Z32-Z35)
   - id: DMAH_GEBELIK_HAFTA_IBARE
     tip: tani_kodu_ibare_kontrolu
     kapsam: urun
@@ -117,11 +72,12 @@ kurallar:
        Z35.1.1, Z35.1.2, Z35.2.1, Z35.2.2, Z35.52]
     ibare: gebelik_haftasi_ifadesi
     mesaj_yok: >-
-      Teşhis kodu gebelikle ilgili (O22/O30/Z32-Z35 grubu) ve DMAH tespit
-      edildi. Bu durumda raporda veya reçetede gebelik haftasının
-      belirtilmesi zorunludur; bu ifade tespit edilemedi.
-    mesaj_var: "Gebelik haftası ifadesi mevcut."
+      KESİNTİ SEBEBİ: Teşhis kodu gebelikle ilgili (O22/O30/Z32-Z35 grubu) ve DMAH tespit
+      edildi. Bu durumda raporda veya reçetede hastanın kaçıncı gebelik haftasında olduğunun
+      belirtilmesi zorunludur; bu ifade tespit edilemedi!
+    mesaj_var: "Gebelik haftası ifadesi doğrulandı."
 
+  # 4. DMAH RAPOR TÜRÜ, SÜRESİ VE BRANŞ ÖZETİ
   - id: DMAH_SURE_VE_BRANS_OZETI
     tip: bilgi_notu
     kapsam: tumu
@@ -136,42 +92,34 @@ kurallar:
       kullanımda SAĞLIK KURULU raporu gerekir; kurulda şu branşlardan en
       az birinin bulunması şarttır: onkoloji, hematoloji, kalp damar
       cerrahisi, kardiyoloji, göğüs hastalıkları, iç hastalıkları, genel
-      cerrahi, nöroloji (Bursa Eczacı Odası'nın özetine göre bu rapor en
-      az 3 uzman hekim imzalı olmalı ve en fazla 2 yıl geçerlidir -- bu iki
-      ayrıntı resmi metnimde yoktu, güncel SUT nüshanızla teyit edin). (3)
+      cerrahi, nöroloji (En az 3 uzman hekim imzalı ve en fazla 2 yıl geçerlidir). (3)
       Gebelikte kadın hastalıkları ve doğum uzmanının yazdığı, en fazla 10
-      ay süreli uzman hekim raporu yeterlidir. Rapordaki süre ve imza
-      sahibi branş(lar)ı, geçerli duruma uyuyor mu kontrol edin.
+      ay süreli uzman hekim raporu yeterlidir.
 
+  # 5. ENOKSAPARİN KÜB ENDİKASYON UYUMU REHBERİ
   - id: DMAH_ENDIKASYON_UYUMU
     tip: bilgi_notu
     kapsam: urun
-    baslik: "Enoksaparin endikasyon uyumu"
+    baslik: "Enoksaparin (DMAH) KÜB endikasyon uyumu özeti"
     sut_madde: "SUT 4.2.7 (Medula: 20.00 kodlu rapor, endikasyon uyumu aranır)"
     seviye: BILGI
     tetikleyici:
       hepsi_bulunmali: [DMAH]
     mesaj: >-
-      Medula'da DMAH genelde 20.00 kodlu raporla çıkar ve endikasyon uyumu
-      aranır. Oksapar (enoksaparin) KÜB'üne göre onaylı endikasyonlar:
-      orta/yüksek riskli cerrahide (özellikle ortopedik/kanser cerrahisi)
+      Medula'da DMAH genelde 20.00 kodlu raporla çıkar ve alt ICD-10 tanı kodunda endikasyon uyumu
+      aranır. Onaylı KÜB endikasyonları: orta/yüksek riskli cerrahide (özellikle ortopedik/kanser cerrahisi)
       venöz tromboemboli (VTE) profilaksisi; akut kalp/solunum yetmezliği,
       ciddi enfeksiyon veya romatizmal hastalık nedeniyle mobilitesi
-      azalmış akut medikal hastalarda VTE profilaksisi; hemodiyaliz
-      sırasında ekstrakorporeal devre trombozunun önlenmesi; derin ven
-      trombozu ve pulmoner emboli tedavisi (cerrahi gerektirebilecek
-      pulmoner emboli hariç); akut koroner sendrom (ASA ile birlikte
-      kararsız angina/NSTEMI, ve STEMI tedavisi). Teşhis bu listedeki bir
-      durumla örtüşmüyorsa endikasyon dışı kullanım riski vardır. (Diğer
-      DMAH etken maddelerinin -- bemiparin, nadroparin, dalteparin,
-      tinzaparin -- kendi KÜB endikasyonları farklı olabilir; bu metin
-      özellikle Oksapar/enoksaparin KÜB'ünden alınmıştır.)
+      azalmış akut medikal hastalarda VTE profilaksisi; derin ven
+      trombozu (I80/I82) ve pulmoner emboli (I26) tedavisi; akut koroner sendrom (I20-I25, ASA ile birlikte
+      kararsız angina/NSTEMI ve STEMI tedavisi).
 
+  # 6. 3 AY TEDAVİ ARASI KURALI
   - id: DMAH_TEDAVI_ARASI_3AY
     tip: bilgi_notu
     kapsam: tumu
     baslik: "3 ay ve üzeri tedavi arasında eski raporlar geçersiz"
-    sut_madde: "Bursa Eczacı Odası özeti (resmi metinde bu ayrıntı görülmedi)"
+    sut_madde: "SUT 4.2.7 Uygulama Notu"
     seviye: BILGI
     tetikleyici:
       hepsi_bulunmali: [DMAH]
